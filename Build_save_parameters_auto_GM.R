@@ -9,9 +9,9 @@
  rm(list=ls())
  
  paramsGL <- list()
- paramsGL$zones <- c('UTM8N', 'UTM9N', 'UTM9S', 'UTM10N', 'UTM10S', 'UTM11N', 'UTM11S', 'UTM12N', 'UTM12S', 'UTM13S','UTM14S','UTM15S', 'UTM16S' ,'UTM17S', 'UTM18S' ,'UTM19S' ,'UTM20S' ,'UTM21S')
+ # paramsGL$zones <- c('UTM8N', 'UTM9N', 'UTM9S', 'UTM10N', 'UTM10S', 'UTM11N', 'UTM11S', 'UTM12N', 'UTM12S', 'UTM13S','UTM14S','UTM15S', 'UTM16S' ,'UTM17S', 'UTM18S' ,'UTM19S' ,'UTM20S' ,'UTM21S')
  # paramsGL$zones <- c('UTM12S', 'UTM13S', 'UTM14S')
- # paramsGL$zones <- c('UTM13S')
+ paramsGL$zones <- c('UTM13S')
  # paramsGL$zones <- c('UTM9S', 'UTM12N')
  # paramsGL$zones <- c('UTM12N', 'UTM21S')
  paramsGL$TARGET_YEAR <- 2010

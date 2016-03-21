@@ -23,7 +23,7 @@
 # - Include following NTEMS layers? 
 #     SRef_13S_Combined_changes_Multiyear.dat -- No, redundant as this info is used to build all the change layers
 #     UTM13S_Change_attribution_complete.dat -- Yes, to add as this is the output of classif of type of changes (dummy vars from it!)
-# - xyFromCell() to get coordinates
+# - xyFromCell() or Coordinates() to get coordinates, spTransform() to get lat/long
 # -V why weights = FALSE ? -- was wrong in Harolds version: should be set as TRUE to have weighted averages
 # -V why not extracting VAL data at the same time?  Employed only at the very end to assess models' accuracy: see "grep -r -n 'TV == "VALIDATION"' *" run in "cd X:/Harolds_orginal_work/SK_nn_forest/sk_docs_code/Rcode"
 # - rastertemp directory unused 
@@ -35,7 +35,7 @@
 
 
 ##----------------------
-## READS  
+## READS
 ##----------------------
 # - "<UTMzone>_cpt_poly_250m_training_validation.shp": (from prog1) point shp with centerpoints of selected polygons
 # - "<UTMzone>_poly_250m_training_validation.shp": (from prog1) polygon shp with selected polygons (after recheck for 9-plots/polyg after subsetting wrt availability of both LiDAR and forest attributes)
@@ -113,8 +113,8 @@ cl <- makeCluster(nr.clusters)
 registerDoParallel(cl)
 getDoParWorkers()
 ## assigns to full.df the row-wise binding of the last unassigned object (dataframe) of the loop (in this case the one formed with "merge(pts9.mean.me....")
-full.df <- foreach (z = 1:length(paramsGL$zones), .combine='rbind', .packages=list.of.packages) %dopar% {   #add .verbose=TRUE for more info when debugging
-# for (z in 1:length(paramsGL$zones)) {
+# full.df <- foreach (z = 1:length(paramsGL$zones), .combine='rbind', .packages=list.of.packages) %dopar% {   #add .verbose=TRUE for more info when debugging
+for (z in 1:length(paramsGL$zones)) {
   
   temp.tic <- proc.time() # start clocking time for each UTM zone
   
@@ -136,7 +136,7 @@ full.df <- foreach (z = 1:length(paramsGL$zones), .combine='rbind', .packages=li
   raster_tmp_dir <- "raster_tmp"
   dir.create(raster_tmp_dir, showWarnings = F, recursive = T)
   rasterOptions(tmpdir = raster_tmp_dir)
-  
+  `
   ##load polygon centerpoint shapefile to get FCID
   ##load training and validation polygons
   ##subset to only training polygons
