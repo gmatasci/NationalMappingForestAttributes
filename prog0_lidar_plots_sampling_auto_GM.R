@@ -50,7 +50,7 @@ params0$dist.center.trans <- 100
 # params0$hexag.cell.size <- 250   ## spacing of the hexagonal sampling cells
 params0$hexag.cell.size <- 2500
 
-param_file_prog0 = file.path(base_wkg_dir, 'AllUTMzones_params0.R', fsep = .Platform$file.sep) 
+param_file_prog0 = file.path(base_wkg_dir, 'AllUTMzones_params0.Rdata', fsep = .Platform$file.sep) 
 save(params0, file = param_file_prog0)
 
 

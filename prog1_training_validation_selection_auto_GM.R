@@ -64,7 +64,7 @@ params1$elev.thresh <- 30   ## threshold on elev_p95 to eliminate birds and towe
 params1$CV.thresh <- 50   ## threshold on coefficient of variation to eliminate plot with too much variability
 params1$trn.pct <- 0.75   ## proportion of training samples in the trn/val split
 
-param_file_prog1 = file.path(base_wkg_dir, 'AllUTMzones_params1.R', fsep = .Platform$file.sep) 
+param_file_prog1 = file.path(base_wkg_dir, 'AllUTMzones_params1.Rdata', fsep = .Platform$file.sep) 
 save(params1, file = param_file_prog1)
 
 nr.clusters = length(paramsGL$zones)  ## for parallel just uncomment the foreach line, the preceding lines and the stopCluster(cl) line at the end

@@ -17,7 +17,7 @@ rm(list=ls()) # clear all variables
 ##------------------------
 ## LOAD GLOBAL PARAMETERS
 ##------------------------
-param_file = "D:/Research/ANALYSES/NationalImputationForestAttributes/BAP_Imputation_working/wkg/AllUTMzones_paramsGL.R"
+param_file = "D:/Research/ANALYSES/NationalImputationForestAttributes/BAP_Imputation_working/wkg/AllUTMzones_paramsGL.Rdata"
 load(param_file)
 
 nr.clusters = length(paramsGL$zones)  ## for parallel just uncomment the foreach line, the preceding lines and the stopCluster(cl) line at the end
@@ -117,7 +117,7 @@ colnames(full.df) <- c("flag_1stReturns_IDs", "1stReturns_nrRows", "1stReturns_n
 
 write.csv(full.df, file = file.path(base_wkg_dir, "check_unique_IDs_coords.csv", sep = ''))
 
-if ( sum(full.df[, "counter_1streturns"]) == nrow(full.df) && sum(full.df[, "counter_forest_attr"]) == nrow(full.df) && sum(full.df[, "counter_points_shp"]) == nrow(full.df) ) {
+if ( sum(full.df[, "flag_1stReturns_IDs"]) == nrow(full.df) && sum(full.df[, "flag_forestAttr_IDs"]) == nrow(full.df) && sum(full.df[, "flag_pointsShp_IDs"]) == nrow(full.df) && sum(full.df[, "flag_pointsShp_Coords"]) == nrow(full.df)) {
   print("All OK!")
 } else {
   print("Something's wrong!")

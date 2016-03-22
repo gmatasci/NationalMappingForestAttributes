@@ -7,7 +7,8 @@
 ##----------------------
 ## TO DO
 ##----------------------
-# - tests to see how extract() works (RAM used, cores, temp directory, etc.)
+# -V tests to see how extract() works (RAM used, cores, temp directory, etc.) -- can be implemented in parallel with foreach of blocks of poly.training.validation (19 mins vs 6h30 !!! still to see with all layers)
+# - check integration of results of the extraction in full.table, test on zone 13S and 20 since now it works without duplicates 
 # - script sequentially copy/pasting files in E from X (only .dat and .hdr)
 # - make it general (all zone numbers and S, N, A) then use == UTMzone (my 18) and exist() to check for valid files to copy
 # - maybe it is faster to use cellFromXY to get index of pixel (or 4 pixels neighborhood) where plot center is located and query rasters just by indexing (implement weighted average as Piotr did)
@@ -25,7 +26,7 @@
 #     UTM13S_Change_attribution_complete.dat -- Yes, to add as this is the output of classif of type of changes (dummy vars from it!)
 # - xyFromCell() or Coordinates() to get coordinates, spTransform() to get lat/long
 # -V why weights = FALSE ? -- was wrong in Harolds version: should be set as TRUE to have weighted averages
-# -V why not extracting VAL data at the same time?  Employed only at the very end to assess models' accuracy: see "grep -r -n 'TV == "VALIDATION"' *" run in "cd X:/Harolds_orginal_work/SK_nn_forest/sk_docs_code/Rcode"
+# -V why not extracting VAL data at the same time? Employed only at the very end to assess models' accuracy: see "grep -r -n 'TV == "VALIDATION"' *" run in "cd X:/Harolds_orginal_work/SK_nn_forest/sk_docs_code/Rcode"
 # - rastertemp directory unused 
 # -V script between this and rf_gnn should be the one that takes train and val points and merges them by ecozone -- we don't do that
 # - check automatic usage of cores (cluster) in extract()
@@ -82,10 +83,8 @@ params2 <- list()
 params2$var.names.long <- c(TC.var.names.long, cng.var.names.long, topo.var.names.long)
 params2$var.names.short <- c(TC.var.names.short, cng.var.names.short, topo.var.names.short)
 
-param_file_prog2 = file.path(base_wkg_dir, 'AllUTMzones_params2.R', fsep = .Platform$file.sep) 
+param_file_prog2 = file.path(base_wkg_dir, 'AllUTMzones_params2.Rdata', fsep = .Platform$file.sep) 
 save(params2, file = param_file_prog2)
-
-nr.clusters = length(paramsGL$zones)  ## for parallel just uncomment the foreach line, the preceding lines and the stopCluster(cl) line at the end
 
 
 ##----------------------------
@@ -109,14 +108,8 @@ for (pack in list.of.packages){
 
 tic <- proc.time() # start clocking global time
 
-cl <- makeCluster(nr.clusters)
-registerDoParallel(cl)
-getDoParWorkers()
-## assigns to full.df the row-wise binding of the last unassigned object (dataframe) of the loop (in this case the one formed with "merge(pts9.mean.me....")
-# full.df <- foreach (z = 1:length(paramsGL$zones), .combine='rbind', .packages=list.of.packages) %dopar% {   #add .verbose=TRUE for more info when debugging
+full.table <- vector("list", length(paramsGL$zones)) 
 for (z in 1:length(paramsGL$zones)) {
-  
-  temp.tic <- proc.time() # start clocking time for each UTM zone
   
   zone <- paramsGL$zones[z]
   zone.nr <- substr(zone, 4, nchar(zone))
@@ -136,25 +129,25 @@ for (z in 1:length(paramsGL$zones)) {
   raster_tmp_dir <- "raster_tmp"
   dir.create(raster_tmp_dir, showWarnings = F, recursive = T)
   rasterOptions(tmpdir = raster_tmp_dir)
-  `
-  ##load polygon centerpoint shapefile to get FCID
-  ##load training and validation polygons
-  ##subset to only training polygons
+  
+  ## load polygon centerpoint shapefile to get FCID
+  ## load training and validation polygons
+  ## subset to only training polygons
   cpt.poly.training.validation <-  readOGR(dsn = wkg_dir, layer = paste(zone,"_cpt_poly_250m_training_validation",sep = '')) ## 4340 polygons
   
   poly.training.validation <-  readOGR(dsn = wkg_dir, layer = paste(zone,"_poly_250m_training_validation",sep = '')) ## 4340 polygons
 
-    ##extract test area from descending node WRS2
-  ##wrs2_descending <-  readOGR(dsn = "F:/SK_nn_forest/sk_data/wrs2", layer = "wrs2_descending") ## 288892 polygons
-  ##subset to only wrspr 39022
-  ##wrs2_39022 <- subset(wrs2_descending, WRSPR == 39022 )
-  ##check proj
-  ##proj4string(wrs2_39022)
-  ##proj4string(TC)
-  ##reproject transform  to match rasters 
-  ##wrs2_39022 <- spTransform(wrs2_39022, CRS(proj4string(TC)))
-  ##write shapefile
-  ##writeOGR(wrs2_39022 , "J:\\sk_data\\wrs2", "wrs2_39022", driver="ESRI Shapefile")
+#   extract test area from descending node WRS2
+#   wrs2_descending <-  readOGR(dsn = "F:/SK_nn_forest/sk_data/wrs2", layer = "wrs2_descending") ## 288892 polygons
+#   subset to only wrspr 39022
+#   wrs2_39022 <- subset(wrs2_descending, WRSPR == 39022 )
+#   check proj
+#   proj4string(wrs2_39022)
+#   proj4string(TC)
+#   reproject transform  to match rasters 
+#   wrs2_39022 <- spTransform(wrs2_39022, CRS(proj4string(TC)))
+#   write shapefile
+#   writeOGR(wrs2_39022 , "J:\\sk_data\\wrs2", "wrs2_39022", driver="ESRI Shapefile")
   
   ##--------------------------------
   ##         load rasters
@@ -241,13 +234,34 @@ for (z in 1:length(paramsGL$zones)) {
   
   names(exvars.stack) <- vars
   
+
+#   # params2$sizeBlocks <- 200
+#   params2$sizeBlocks <- 2
+#   
+#   sizeBlocks <- params2$sizeBlocks
+#   nblocks = ceiling(nrow(poly.training.validation@data)/sizeBlocks)
+
   
-  ##extract mean of exvars weighted by nomralized proportion contribution of each cell in polygon
-  ##weights within each polygon sum to 1
-  exvars.extract <- extract(exvars.stack, poly.training.validation, fun = mean, na.rm = FALSE, weights = TRUE, normalizeWeights = TRUE,
+  nblocks = min(detectCores(), nrow(poly.training.validation@data))
+  sizeBlocks <- ceiling(nrow(poly.training.validation@data)/nblocks)
+  nr.clusters <- nblocks
+  cl <- makeCluster(nr.clusters)
+  registerDoParallel(cl)
+  getDoParWorkers()
+  exvars.extract <- foreach (blck = 1:nblocks, .combine='rbind', .packages=list.of.packages) %dopar% {   #add .verbose=TRUE for more info when debugging
+  # for (blck in 1:nblocks) {
+      
+    indPart = seq(from=(blck-1)*sizeBlocks+1, to=min(blck*sizeBlocks, nrow(poly.training.validation@data)), by=1)
+    ##extract mean of exvars weighted by nomralized proportion contribution of each cell in polygon
+    ##weights within each polygon sum to 1
+    extract(exvars.stack, poly.training.validation[indPart, ], fun = mean, na.rm = FALSE, weights = TRUE, normalizeWeights = TRUE,
                           cellnumbers = FALSE, small = FALSE, df = TRUE, factors = FALSE, sp = FALSE)  # extract is a function that actually accesses the values of the rasters, MEMORY ISSUES?
   
+  }
   
+  stopCluster(cl)
+  
+
 #   for (var in vars){
 #     cmd=sprintf('hist(exvars.extract$%s)', var)
 #     eval(parse(text=cmd))
@@ -327,7 +341,7 @@ for (z in 1:length(paramsGL$zones)) {
   
   ##bind training polygon information with extracted explanatory variables
   FCID <- cpt.poly.training.validation@data[,c("FCID","POLY250ID","TV")]
-  cbind(FCID, exvars.extract)
+  full.table[[z]] <- cbind(FCID, exvars.extract)
 
   
   # clock UTM zone time
@@ -335,6 +349,8 @@ for (z in 1:length(paramsGL$zones)) {
 #   print(paste(zone,"elapsed time:",seconds_to_period(temp.toc[3])))
   
 }
+
+full.df <- rbindlist(full.table)
 
 ## export full.df (former "poly.training.validation.exvars.extract") as csv
 write.csv(full.df, file = file.path(base_wkg_dir, "poly_training_validation_exvars_extract.csv", sep = ''))
