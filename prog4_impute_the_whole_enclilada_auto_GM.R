@@ -11,12 +11,15 @@
 ##----------------------
 ## TO DO
 ##----------------------
+
+## STILL TO DO
 # - in masking step change name of mask to use again the complete masks and not TRIAL ones
 # - check correspondence between variable names in raster (prediction grid) and Xrefs (training set) in model file
-# - check correspondence between size of unit (75x75 m for training VS 30x30 m pixel in test)
 # - fix units of variables: [kg/ha], etc.
 # - getValues() or getValuesBlock() to access reshaped raster values (rows = pixels, columns = bands)
 
+## SOLVED
+# -V check correspondence between size of unit (75x75 m for training VS 30x30 m pixel in test) -- now changed to 25x25m, so unit size more closely matches pixel size
 
 ##----------------------
 ## MAIN OUTPUT
@@ -32,7 +35,7 @@ rm(list=ls()) # clear all variables
 ##------------------------
 ## LOAD GLOBAL PARAMETERS
 ##------------------------
-param_file = "D:/Research/ANALYSES/NationalImputationForestAttributes/BAP_Imputation_working/wkg/AllUTMzones_paramsGL.R"
+param_file = "D:/Research/ANALYSES/NationalImputationForestAttributes/BAP_Imputation_working/wkg/AllUTMzones_paramsGL.Rdata"
 load(param_file)
 
 ##----------------------------

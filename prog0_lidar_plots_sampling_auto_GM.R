@@ -1,13 +1,15 @@
 ##----------------------
 ## TO DO
 ##----------------------
+
+## STILL TO DO
+# - check projections
+
+## SOLVED
 # -V check IDs who relates to who -- now they all relate to "lidar.2.fc.dist.undist"
 # -V check shapefiles produced -- FCIDs all match and relate to "lidar.2.fc.dist.undist"
-# - check projections
-# - duplicate plots (eg, in "9S_points.shp": T20_095D01_333871 and T24_095D01_333871)
-# -
-#
-#
+# -V duplicate plot IDs (eg, in "9S_points.shp": T20_095D01_333871 and T24_095D01_333871) -- now filtered in the new version of files Geordie sent ("LOP_attr.zip" folder)
+# -V duplicate plot coords -- see impact in script and just filter them myself (after "lidar <-  readOGR()" )
 
 ##----------------------
 ## READS  
@@ -37,7 +39,7 @@ rm(list=ls()) # clear all variables
 ##------------------------
 ## LOAD GLOBAL PARAMETERS
 ##------------------------
-param_file = "D:/Research/ANALYSES/NationalImputationForestAttributes/BAP_Imputation_working/wkg/AllUTMzones_paramsGL.R"
+param_file = "D:/Research/ANALYSES/NationalImputationForestAttributes/BAP_Imputation_working/wkg/AllUTMzones_paramsGL.Rdata"
 load(param_file)
 
 
@@ -48,7 +50,7 @@ params0 <- list()
 # params0$dist.center.trans <- 300   ## threshold on distance from center of transect to eliminate plots whose acquisition was too skewed
 params0$dist.center.trans <- 100   
 # params0$hexag.cell.size <- 250   ## spacing of the hexagonal sampling cells
-params0$hexag.cell.size <- 2500
+params0$hexag.cell.size <- 3500
 
 param_file_prog0 = file.path(base_wkg_dir, 'AllUTMzones_params0.Rdata', fsep = .Platform$file.sep) 
 save(params0, file = param_file_prog0)
@@ -92,7 +94,7 @@ getDoParWorkers()
 nr.samples.per.zone <- foreach (z = 1:length(paramsGL$zones), .combine='rbind', .packages=list.of.packages) %dopar% {   #add .verbose=TRUE for more info when debugging
 # for (z in 1:length(paramsGL$zones)) {
     
-  temp.tic <- proc.time() # start clocking time for each UTM zone
+  # temp.tic <- proc.time() # start clocking time for each UTM zone
   
   zone = paramsGL$zones[z]
   print(paste('Prog0, sampling on' ,zone))   # converts its arguments (via as.character) to character strings, and concatenates them (separating them by the string given by sep or by a space by default)
@@ -106,7 +108,13 @@ nr.samples.per.zone <- foreach (z = 1:length(paramsGL$zones), .combine='rbind', 
   
   ## load lidar plot points shapefiles
   pnt_dir = file.path(LOP_dir,'LOP_attributed', fsep = .Platform$file.sep) 
-  lidar <-  readOGR(dsn = pnt_dir, layer = paste(zone,"_points", sep='')) ## 1667288 lidar plots, "lidar" is of type SpatialPointsDataFrame that is an object of the S4 object system, readOGR belongs to rgdal: dsn = data source name (folder), layer = filename without extension
+  lidar.raw <-  readOGR(dsn = pnt_dir, layer = paste(zone,"_points", sep='')) ## 1667288 lidar plots, "lidar" is of type SpatialPointsDataFrame that is an object of the S4 object system, readOGR belongs to rgdal: dsn = data source name (folder), layer = filename without extension
+  
+  ## filter duplicate coordinates
+  duplicIndic <- duplicated(lidar.raw@coords, incomparables = FALSE)
+  lidar <- lidar.raw[!duplicIndic, ]  # lidar now contains only one point at each coordinate pair
+  rm(lidar.raw)
+  rm(duplicIndic)
   
   ## also load the lidar transect polyline shapefile
   ## need to reproject to match lidar plots
@@ -249,7 +257,7 @@ nr.samples.per.zone <- foreach (z = 1:length(paramsGL$zones), .combine='rbind', 
 #   nr.samples.per.zone[z] <- nrow(polys.250m.9pts.df@data)
   nrow(polys.250m.9pts.df@data)
   
-  # clock UTM zone time
+  ## clock UTM zone time
 #   temp.toc <- proc.time()-temp.tic[3]
 #   print(paste(zone,"elapsed time:",seconds_to_period(temp.toc[3])))
   

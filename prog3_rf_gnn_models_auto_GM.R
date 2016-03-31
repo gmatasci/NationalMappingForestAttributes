@@ -10,13 +10,18 @@
 ##----------------------
 ## TO DO
 ##----------------------
+
+## STILL TO DO
 # - build model with proprer data
 # - separate script (not to be run everytime) for model selection called "prog3a_" to see if there
 #   are improvements in predicting response variables on at a time and not as a single multivariate Y: 
 #   this means comparing yaimpute rf, yaimpute gnn, rf, svm, etc.
-# - write script between prog2 and prog3 to group data by ecozone rather than by UTM zone
-# - change loop over ecozones instead of over UTM zones 
 # - yaImpute uses a RF with a nrTrees shared across all Ys, so actual nrTrees is nrTrees/nrYs
+
+## SOLVED
+# -V write script between prog2 and prog3 to group data by ecozone rather than by UTM zone -- no, we run the analysis at the national level with one single model (long, lat & other trends should account)
+# -V change loop over ecozones instead of over UTM zones -- no need to do it as we use one single model valid for all Can territory
+
 
 ##----------------------
 ## READS
@@ -37,7 +42,7 @@ rm(list=ls()) # clear all variables
 ##------------------------
 ## LOAD GLOBAL PARAMETERS
 ##------------------------
-param_file = "D:/Research/ANALYSES/NationalImputationForestAttributes/BAP_Imputation_working/wkg/AllUTMzones_paramsGL.R"
+param_file = "D:/Research/ANALYSES/NationalImputationForestAttributes/BAP_Imputation_working/wkg/AllUTMzones_paramsGL.Rdata"
 load(param_file)
 
 ##----------------------------

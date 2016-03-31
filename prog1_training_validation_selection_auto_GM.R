@@ -10,13 +10,17 @@
 ##----------------------
 ## TO DO
 ##----------------------
+
+## STILL TO DO
+# - where shall I overwrite the new shapefiles from "ForGiona.zip" (use these as there was an issue wrt nr. LiDAR plots >= nr. plots with LiDAR attr. >= nr. plots with forest attr.)?
 # - TRN/VAL center of polygon shapefiles match with those produced by prog0, the shapefile with all the points written at end  
 #   (pts9.poly.training.validation.temp.5 as _pts9_poly_250m_training_validation) does not match!!! TO CHECK AGAIN
 # - ############# = TODEL
 # - check sizes of shp vs csv
-# - elev_cv is ok for in-plot filtering or we need CV on 3x3 polyg ?
-# - UTM11S_plot_cloud_metrics_first_returns_gt2m.csv is only 7000 KB in size and Unique_IDs do not match
+# -DOUG elev_cv is ok for in-plot filtering or we need CV on 3x3 polyg ?
 
+## SOLVED
+# -V UTM11S_plot_cloud_metrics_first_returns_gt2m.csv is only 7000 KB in size and Unique_IDs do not match -- with new data from Geordie now it is OK, 7000 Kb bc is a very small transect
 
 ##----------------------
 ## READS  
@@ -47,7 +51,7 @@ rm(list=ls()) # clear all variables
 ##------------------------
 ## LOAD GLOBAL PARAMETERS
 ##------------------------
-param_file = "D:/Research/ANALYSES/NationalImputationForestAttributes/BAP_Imputation_working/wkg/AllUTMzones_paramsGL.R"
+param_file = "D:/Research/ANALYSES/NationalImputationForestAttributes/BAP_Imputation_working/wkg/AllUTMzones_paramsGL.Rdata"
 load(param_file)
 
 # ############### TO DEL
@@ -103,8 +107,7 @@ getDoParWorkers()
 full.df <- foreach (z = 1:length(paramsGL$zones), .combine='rbind', .packages=list.of.packages) %dopar% {   #add .verbose=TRUE for more info when debugging
 # for (z in 1:length(paramsGL$zones)) {
 
-
-  temp.tic <- proc.time() # start clocking time for each UTM zone
+  # temp.tic <- proc.time() # start clocking time for each UTM zone
   
   zone = paramsGL$zones[z]
   print(paste('Prog1, TRN/VAL splitting on' ,zone))   # converts its arguments (via as.character) to character strings, and concatenates them (separating them by the string given by sep or by a space by default)
@@ -309,7 +312,7 @@ full.df <- foreach (z = 1:length(paramsGL$zones), .combine='rbind', .packages=li
   
   merge(pts9.mean.metric.attributes.training.validation, train.valid.POLY250ID, by.x = "POLY250ID", by.y = "POLY250ID")
 
-#   # clock UTM zone time
+#   ## clock UTM zone time
 #   temp.toc <- proc.time()-temp.tic[3]
 #   print(paste(zone,"elapsed time:",seconds_to_period(temp.toc[3])))
 

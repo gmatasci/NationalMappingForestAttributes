@@ -4,8 +4,12 @@
 ##----------------------
 ## TO DO
 ##----------------------
+
+## STILL TO DO
 # - run before prog0 to check all files loaded
 # - run similar script after prog1 with all produced files
+
+## SOLVED
 
 #-----------------------------------------------------------------
 #-------------------------     START     -------------------------
@@ -57,7 +61,7 @@ full.df <- foreach (z = 1:length(paramsGL$zones), .combine='rbind', .packages=li
 # for (z in 1:length(paramsGL$zones)) {
 
   zone = paramsGL$zones[z]
-  print(paste('Prog1a, Check for duplicates on' ,zone))   # converts its arguments (via as.character) to character strings, and concatenates them (separating them by the string given by sep or by a space by default)
+  print(paste('Prog0a, Check for duplicates on' ,zone))   # converts its arguments (via as.character) to character strings, and concatenates them (separating them by the string given by sep or by a space by default)
   wkg_dir = file.path(base_wkg_dir, zone, fsep = .Platform$file.sep)
 
   ## load lidar veg metrics database
@@ -125,7 +129,7 @@ if ( sum(full.df[, "flag_1stReturns_IDs"]) == nrow(full.df) && sum(full.df[, "fl
 
 # clock global time
 toc <- proc.time()-tic[3]
-print(paste("Prog1a, total elapsed time:",seconds_to_period(toc[3])))
+print(paste("Prog0a, total elapsed time:",seconds_to_period(toc[3])))
 
 
 
