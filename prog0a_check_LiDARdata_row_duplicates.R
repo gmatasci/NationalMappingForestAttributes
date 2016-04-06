@@ -47,8 +47,7 @@ list.of.packages <- c("rgdal",
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]   # named vector members whose name is "Package"
 if(length(new.packages)) install.packages(new.packages)
 for (pack in list.of.packages){
-  cmd=sprintf('library(%s)', pack)
-  eval(parse(text=cmd))
+  library(pack, character.only=TRUE)
 }
 
 tic <- proc.time() # start clocking global time

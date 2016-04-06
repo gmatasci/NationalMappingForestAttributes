@@ -3,7 +3,9 @@
 ##----------------------
 
 ## STILL TO DO
+# - check usage of new shp in LOP_attributes as they have more columns/points
 # - check projections
+# - remove setwd() from all scripts
 
 ## SOLVED
 # -V check IDs who relates to who -- now they all relate to "lidar.2.fc.dist.undist"
@@ -47,10 +49,10 @@ load(param_file)
 ## SCRIPT SPECIFIC PARAMETERS
 ##----------------------------
 params0 <- list()
-# params0$dist.center.trans <- 300   ## threshold on distance from center of transect to eliminate plots whose acquisition was too skewed
-params0$dist.center.trans <- 100   
-# params0$hexag.cell.size <- 250   ## spacing of the hexagonal sampling cells
-params0$hexag.cell.size <- 3500
+params0$dist.center.trans <- 300   ## threshold on distance from center of transect to eliminate plots whose acquisition was too skewed
+# params0$dist.center.trans <- 100   
+params0$hexag.cell.size <- 250   ## spacing of the hexagonal sampling cells
+# params0$hexag.cell.size <- 3500
 
 param_file_prog0 = file.path(base_wkg_dir, 'AllUTMzones_params0.Rdata', fsep = .Platform$file.sep) 
 save(params0, file = param_file_prog0)
@@ -71,13 +73,11 @@ list.of.packages <- c("rgdal",
                       "lubridate", 
                       "doParallel", 
                       "foreach"
-                      # "profvis",
                       )
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]   # named vector members whose name is "Package"
 if(length(new.packages)) install.packages(new.packages)
 for (pack in list.of.packages){
-  cmd=sprintf('library(%s)', pack)
-  eval(parse(text=cmd))
+  library(pack, character.only=TRUE)  ## to allow calling library() dynamically
 }
 
 ## for profiling small parts of the code:
@@ -99,12 +99,10 @@ nr.samples.per.zone <- foreach (z = 1:length(paramsGL$zones), .combine='rbind', 
   zone = paramsGL$zones[z]
   print(paste('Prog0, sampling on' ,zone))   # converts its arguments (via as.character) to character strings, and concatenates them (separating them by the string given by sep or by a space by default)
   wkg_dir = file.path(base_wkg_dir,zone, fsep = .Platform$file.sep)
-  results_dir = file.path(base_results_dir, zone,fsep = .Platform$file.sep)
-  
+
   if (! file.exists(wkg_dir)){dir.create(wkg_dir, showWarnings = F, recursive = T)}
-  if (! file.exists(results_dir)){dir.create(results_dir, showWarnings = F, recursive = T)}
-  
-  setwd(wkg_dir)
+
+  # setwd(wkg_dir)
   
   ## load lidar plot points shapefiles
   pnt_dir = file.path(LOP_dir,'LOP_attributed', fsep = .Platform$file.sep) 
@@ -121,10 +119,10 @@ nr.samples.per.zone <- foreach (z = 1:length(paramsGL$zones), .combine='rbind', 
   trsct_dir = file.path(LOP_dir,'LOP_transects', fsep = .Platform$file.sep) 
   lidar.transect <-  readOGR(dsn = trsct_dir, layer = paste(zone, "_trsct",sep=''))
   
-  
-  ## check if coordinate systems are the same between raster mask and lidar plots
-  proj4string(lidar) ## not the same projection as rasters
-  proj4string(lidar.transect) ## not the same projection as rasters
+  ## check if coordinate systems are the same between lidar plots point shapefile and transect line shapefile
+  if ( !identical(proj4string(lidar), proj4string(lidar.transect)) ) {
+    stop(sprintf("%s: projections of LiDAR points shapefile and LiDAR transect shapefile loaded in prog0 do not match.", zone))
+  }
   
   #######################################################
   ## 1) sample based on distance to edge of lidar transect
@@ -197,7 +195,7 @@ nr.samples.per.zone <- foreach (z = 1:length(paramsGL$zones), .combine='rbind', 
   FCID = HexPts.250m.Snap@data$FCID
   square=cbind(xMinus,yPlus, xPlus,yPlus, xPlus,yMinus, xMinus,yMinus, xMinus,yPlus)
   
-  ##loop to createpolygons from sample points
+  ##loop to create polygons from sample points
   a <- vector('list', length(2))
   for (i in 1:length(FCID)) {     
     a[[i]]<-Polygons(list(Polygon(matrix(square[i, ], ncol=2, byrow=TRUE))), FCID[i]) 

@@ -8,6 +8,8 @@
 ##----------------------
 
 ## STILL TO DO
+# - convert "Year of " variables to "Years since" to avoid weird averages
+# - adapt behavior of params2$pred.names.lg and params2$pred.names.sh wrt list vs vector
 # -TXOMIN: check extents (Topo by Geordie vs rest) -- Geordie has a script to change and resave all NTEMS layers at the new narrow extent (less overlap) with the same folder structure
 # - check projections to ensure we're sampling proper locations
 # - check var names wrt final df (35 vs 32 cols)
@@ -26,6 +28,9 @@
 # - TSRI different values the two different layers
 # - rastertemp directory is used?
 # - !!! uncomment unlink() !!!
+# - !!! uncomment params2$var.names.short !!!
+# - prior to actual run, delete all UTMzones folders in Landsat_dir E:\NTEMS otherwise copy_paste_UTMdata() will not be run
+
 
 ## SOLVED
 # -V why weights = FALSE ? -- was wrong in Harolds version: should be set as TRUE to have weighted averages
@@ -46,7 +51,7 @@
 # -V how to aggregate change classes (unclass)?  -- leave them like that with 10 classes (and separated 'unclassified' classes), we can always merge them later on
 # -V use 500m hexag? -- let's keep 250m and try to model things with a RF on 100'000+ points (parallel!)
 # -V no point in saving a dataset (table) for mapping, do a script creating variables on the fly for prediction/mapping -- yes, thats the weay to do it, consider saving a TC components file (5 layers) with the new narrow extent
-
+# -V add ArcGIS/ArcPy AreaSolarRadiation() ? -- no, super-slow to compute
 
 
 ##----------------------
@@ -59,7 +64,7 @@
 ##----------------------
 ## WRITES
 ##----------------------
-# - "poly_training_validation_exvars_extract.csv": csv table with explanatory variables (X) for selected TRN and VAL samples (3x3 plots polygons with weighted average pixels values)
+# - "poly_training_validation_exvars_extract.csv": (for prog3a and prog3) csv table with explanatory variables (X) for selected TRN and VAL samples (3x3 plots or single plot polygons with weighted average pixels values)
 
 #-----------------------------------------------------------------
 #-------------------------     START     -------------------------
@@ -72,46 +77,56 @@ rm(list=ls()) # clear all variables
 ##------------------------
 param_file = "D:/Research/ANALYSES/NationalImputationForestAttributes/BAP_Imputation_working/wkg/AllUTMzones_paramsGL.Rdata"
 load(param_file)
-source("D:/Research/ANALYSES/NationalImputationForestAttributes/BAP_Imputation_working/scripts_NationalImputationForestAttributes/UsefulFunctions_NatImp.R")
+
+source("Functions_NatImp.R")
 
 ##----------------------------
 ## SCRIPT SPECIFIC PARAMETERS
 ##----------------------------
 
 ## Prior to actual run, delete all UTMzones folders in Landsat_dir E:\NTEMS otherwise copy_paste_UTMdata() will not be run
+params2 <- list()
 
-bands.var.names.long <- list('band1', 'band2', 'band3', 'band4', 'band5', 'band7')
-bands.var.names.short <- list('b1', 'b2', 'b3', 'b4', 'b5', 'b7')
+bands.names.lg <- list('band1', 'band2', 'band3', 'band4', 'band5', 'band7')
+bands.names.sh <- list('b1', 'b2', 'b3', 'b4', 'b5', 'b7')
 
-TC.var.names.long <- list('TC_Brightness', 'TC_Greenness', 'TC_Wetness', 'TC_Angle', 'TC_Distance')  
-TC.var.names.short <- list('TCB', 'TCG', 'TCW', 'TCA', 'TCD')
+TC.names.lg <- list('TC_Brightness', 'TC_Greenness', 'TC_Wetness', 'TC_Angle', 'TC_Distance')  
+TC.names.sh <- list('TCB', 'TCG', 'TCW', 'TCA', 'TCD')
 
-cng.var.names.long <- list("PreChange_persistence", "PreChange_magnitude_variation", "PreChange_evolution_rate", 
+cng.names.lg <- list("PreChange_persistence", "PreChange_magnitude_variation", "PreChange_evolution_rate", 
                         "Change_persistence", "Change_magnitude_variation", "Change_rate",
                         "PostChange_persistence", "PostChange_magnitude_variation", "PostChange_evolution_rate",
                         "Greatest_Change_Year", "Last_Change_Year", "Last_Change_persistence", "First_Change_Year", "First_Change_persistence"
                         )
-cng.var.names.short <- list("PreCh_pers", "PreCh_mag", "PreCh_er", 
+cng.names.sh <- list("PreCh_pers", "PreCh_mag", "PreCh_er", 
                         "Ch_pers", "Ch_mag", "Ch_er",
                         "PostCh_pers", "PostCh_mag", "PostCh_er",
                         "GreatCh_yr", "LastCh_yr", "LastCh_pers", "FirstCh_yr", "FirstCh_pers"
                         )
 
-cngattr.var.names.long <- list("Change_attribution")
-cngattr.var.names.short <- list("Ch_attr")
+cngattr.names.lg <- list("Change_attribution")
+cngattr.names.sh <- list("Ch_attr")
 
-topo.var.names.long <- list("Elevation", "Slope", "Topographic_wetness_index", "Topographic_solar_radiation_index")
-topo.var.names.short <- list("Elev", "Slope", "TWI", "TSRI")
+topo.names.lg <- list("Elevation", "Slope", "Topographic_wetness_index", "Topographic_solar_radiation_index")
+topo.names.sh <- list("Elev", "Slope", "TWI", "TSRI")
 
-trends.var.names.long <- list("Longitude", "Latitude", "Hours_of_daylight")
-trends.var.names.short <- list("Long", "Lat", "Daylight")
+trends.names.lg <- list("Longitude", "Latitude", "Hours_of_daylight")
+trends.names.sh <- list("Long", "Lat", "Daylight")
 
-params2 <- list()
+params2$pred.names.lg <- list(bands=bands.names.lg, TC=TC.names.lg, cng=cng.names.lg, cngattr=cngattr.names.lg, trends=trends.names.lg)
+params2$pred.names.sh <- list(bands=bands.names.sh, TC=TC.names.sh, cng=cng.names.sh, cngattr=cngattr.names.sh, trends=trends.names.sh)
+
 
 params2$jul.day <- 213  # compute length of daylight for August 1st
 
-params2$var.names.long <- c(bands.var.names.long, TC.var.names.long, cng.var.names.long, cngattr.var.names.long, topo.var.names.long, trends.var.names.long)
-params2$var.names.short <- c(bands.var.names.short, TC.var.names.short, cng.var.names.short, cngattr.var.names.short, topo.var.names.short, trends.var.names.short)
+## USE THIS TILL ALL LAYERS ARE READY WITH SAME EXTENT
+params2$var.names.long <- c(bands.names.lg, TC.names.lg, cng.names.lg, cngattr.names.lg, trends.names.lg)
+params2$var.names.short <- c(bands.names.sh, TC.names.sh, cng.names.sh, cngattr.names.sh, trends.names.sh)
+
+##-------------- TO UNCOMMENT ----------------------
+# params2$var.names.long <- c(bands.names.lg, TC.names.lg, cng.names.lg, cngattr.names.lg, topo.names.lg, trends.names.lg)
+# params2$var.names.short <- c(bands.names.sh, TC.names.sh, cng.names.sh, cngattr.names.sh, topo.names.sh, trends.names.sh)
+##-------------- TO UNCOMMENT ----------------------
 
 params2$disk.names <- list("//2234b/j", "//Frst-cdw-2231j/j", "//Frst-cdw-2231j/h", "//Frst-cdw-2231j/f")
 
@@ -138,8 +153,7 @@ list.of.packages <- c("rgdal",
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]   # named vector members whose name is "Package"
 if(length(new.packages)) install.packages(new.packages)
 for (pack in list.of.packages){
-  cmd <- sprintf('library(%s)', pack)
-  eval(parse(text=cmd))
+  library(pack, character.only=TRUE)
 }
 
 tic <- proc.time() # start clocking global time
@@ -156,13 +170,13 @@ for (z in 1:length(paramsGL$zones)) {
   wkg_dir = file.path(base_wkg_dir,zone, fsep = .Platform$file.sep)
   results_dir = file.path(base_results_dir, zone, fsep = .Platform$file.sep)
   
-  setwd(wkg_dir)
+  # setwd(wkg_dir)
   
   ## call copy_paste_UTMdata() only if no folder named like that exists in Landsat_dir
   cmd <- sprintf('folder.exists.bool <- file.exists(file.path("%s", "UTM_%s", fsep = .Platform$file.sep))', Landsat_dir, zone.nr)
   eval(parse(text=cmd))
   if ( !folder.exists.bool ) {
-    log.copy.paste <- copy_paste_UTMdata(params2$disk.names, zone, cng.var.names.long, Landsat_dir)
+    log.copy.paste <- copy_paste_UTMdata(params2$disk.names, zone, cng.names.lg, Landsat_dir)
     if (length(log.copy.paste$list.missing.files)>0) {
       stop(sprintf("Missing files for zone %s", zone))
     }
@@ -215,7 +229,7 @@ for (z in 1:length(paramsGL$zones)) {
   ## change metrics (14 layers in NTEMS Results/Changes folder)
   ## read raster layers from folder <UTM_zone.nr>\Results\Change_metrics\
   ## Landsat_dir goes at the end as a variable bc if left inside sprintf as a string is not detected by foreach and thus not passed to the cores (error: "object 'Landsat_dir' not found")
-  for (var in cng.var.names.long) {
+  for (var in cng.names.lg) {
     cmd <- sprintf('%s <- raster(file.path("%s", "UTM_%s", "Results", "Change_metrics", "SRef_%s_%s.dat", fsep = .Platform$file.sep))', var, Landsat_dir, zone.nr, zone.nr, var)  
     eval(parse(text=cmd))
   }
@@ -267,65 +281,53 @@ for (z in 1:length(paramsGL$zones)) {
 #                   Elevation, Aspect, Aspect_cos, Slope, TWI, TSRI)
 ########### TO DEL ###########  
   
+  ########### TO DEL ###########  
+  #  ## test with padding (pasting the narrower raster into a blank wider one)
+  #   unfilled.raster <- raster(extent(Bands), ncol=Bands@ncols, nrow=Bands@nrows, crs=proj4string(Bands))
+  #   low.left.coords.unfill <- unfilled.raster@extent[c(1,3)]
+  #   low.left.coords.elev <- Elevation@extent[c(1,3)]
+  #   
+  #   low.left.idx.elev <- round((low.left.coords.elev-low.left.coords.unfill)/30,  digits = 0)
+  #   
+  #   aaa <- unfilled.raster@data[low.left.idx.elev[2]:low.left.idx.elev[2]+Elevation@nrows, low.left.idx.elev[1]:low.left.idx.elev[1]+Elevation@ncols]
+  #   
+  #   NOT WORKING CAUSE CANT ACCESS/WRITE DATA IN A RASTER OBJECT
+  #   unfilled.raster low.left.corner
+  #  
+  #   ## test with mask()
+  #   cmd <- sprintf('non.overl.mask <- raster(file.path("%s", "UTM_%s", "Non_overlapping_mask", "%s_Non_Overlapping_Mask.dat", fsep = .Platform$file.sep))', Landsat_dir, zone.nr, zone)  
+  #   eval(parse(text=cmd))
+  #   Bands.masked <- mask(Bands, non.overl.mask, maskvalue=0)
+  ########### TO DEL ###########
   
-#   vars <- c(cng.var.names.short)  ## to rename columns of final dataframe
-#   str <- paste(c(cng.var.names.long), collapse=", ")  ## creates string of variable names to input in stack()
+  special.case.names.sh <- c("GreatCh_yr", "LastCh_yr", "FirstCh_yr")
+  regular.case.idx <- (!cng.names.sh  %in%  special.case.names.sh)
   
-  vars <- c(bands.var.names.short, cng.var.names.short, cngattr.var.names.short)
-  str <- paste(c('Bands', cng.var.names.long, cngattr.var.names.long), collapse=", ")
-  
-#   vars <- c(bands.var.names.short, cng.var.names.short, cngattr.var.names.short, topo.var.names.short)
-#   str <- paste(c('Bands', cng.var.names.long, cngattr.var.names.long, topo.var.names.long), collapse=", ")
-  
-  
-  unfilled.raster <- raster(extent(Bands), ncol=Bands@ncols, nrow=Bands@nrows, crs=proj4string(Bands))
-  low.left.coords.unfill <- unfilled.raster@extent[c(1,3)]
-  low.left.coords.elev <- Elevation@extent[c(1,3)]
-  
-  low.left.idx.elev <- round((low.left.coords.elev-low.left.coords.unfill)/30,  digits = 0)
-  
-  aaa <- unfilled.raster@data[low.left.idx.elev[2]:low.left.idx.elev[2]+Elevation@nrows, low.left.idx.elev[1]:low.left.idx.elev[1]+Elevation@ncols]
-  XXXXXXXXXXXXX
-  NOT WORKING CAUSE CANT ACCESS/WRITE DATA IN A RASTER OBJECT
-  unfilled.raster low.left.corner
+  XXXXXXXXXXXXXXXXXXXXXXXXXXXX
+  XXXXXXXXXXXXXXXXXXXXXXXXXXXX
+  2 (?) separate extract() to integrate in foreach (rbindlist?)
+  "Ch_attr"
   
   
-  XXXXXXXXXXXXXXXXXXXXXXXXX
-  XXXXXXXXXXXXXXXXXXXXXXXXX
+  vars <- c(bands.names.sh, cng.names.sh[regular.case.idx])
+  str <- paste(c('Bands', cng.names.lg[regular.case.idx]), collapse=", ")
   
-  cmd <- sprintf('non.overl.mask <- raster(file.path("%s", "UTM_%s", "Non_overlapping_mask", "%s_Non_Overlapping_Mask.dat", fsep = .Platform$file.sep))', Landsat_dir, zone.nr, zone)  
+  ## to use till we don't have topo and other NTEMS data matching in extent
+  vars <- c(bands.names.sh, cng.names.sh, cngattr.names.sh)
+  str <- paste(c('Bands', cng.names.lg, cngattr.names.lg), collapse=", ")
+  
+#   ## final list to to use when all layers are available
+#   vars <- c(bands.names.sh, cng.names.sh, cngattr.names.sh, topo.names.sh)  ## to rename columns of final dataframe
+#   str <- paste(c('Bands', cng.names.lg, cngattr.names.lg, topo.names.lg), collapse=", ")  ## creates string of variable names to input in stack()
+  
+  cmd <- sprintf("exvars.stack <- stack(%s)", str)  ## stack() already checks if projections of all the layers match
   eval(parse(text=cmd))
+  names(exvars.stack) <- vars
   
-  Bands.masked <- mask(Bands, non.overl.mask, maskvalue=0)
-  
-  
-  cmd <- sprintf("exvars.stack <- stack(%s)", str)
-  eval(parse(text=cmd))
-  
-########### TO DEL ###########  
-#   TCvectorGetVal <- getValuesBlock(TC, row=1, nrows=100, col=1, ncols=100)
-#   TCmatrixGetVal <- array(TCvectorGetVal,  c(100,100,5))
-#   pdf("TCmatrixGetVal.pdf")
-#     levelplot(TCmatrixGetVal[,,4], col.regions=terrain.colors(100), main="TCmatrixGetVal")
-#   dev.off()
-#     
-#   TCband4 <- TC[[4]]
-#   TCvectorIdx <- TCband4[1:100, 1:100]
-#   TCmatrixIdx <- array(TCvectorIdx,  c(100,100))
-#   # pdf("TCmatrixIdx.pdf")
-#     levelplot(TCmatrixIdx, col.regions=terrain.colors(100), main="TCmatrixIdx")
-#   # dev.off()
-#     
-#   BandMatrix <- getValuesBlock(Bands, row=1, nrows=100, col=1, ncols=100)
-#   
-#   BandsBand <- Bands[[3]]
-#   BandsVectorIdx <- BandsBand[1:100, 1:100]
-#   BandsMatrixIdx <- array(BandsVectorIdx,  c(100,100))
-#   # pdf("BandsMatrixIdx.pdf")
-#     levelplot(BandsMatrixIdx, col.regions=terrain.colors(100), main="BandsMatrixIdx")
-#   # dev.off()
-########### TO DEL ###########  
-  
+  ## check if coordinate systems are the same between raster stack and shapefiles
+  if ( !all(sapply(list(proj4string(poly.training.validation), proj4string(cpt.poly.training.validation)), FUN = identical, proj4string(exvars.stack))) ) {
+    stop(sprintf("%s: projections of raster stack and shapefiles loaded in prog2 do not match.", zone))
+  }
   
 ########### TO DEL ###########  
 #   vars <- c('TCB', 'TCG', 'TCW', 'TCA', 'TCD', 'Disturbed', 'PreChange_persistence', 'PreChange_magnitude', 'PreChange_evolution', 'PostChange_persistence',
@@ -333,9 +335,7 @@ for (z in 1:length(paramsGL$zones)) {
 #                            'First_Change_Year', 'First_Change_persistence', 'Change_rate', 'Change_persistence', 'Change_magnitude', 
 #                            'Years_Since_First_Change', 'Years_Since_Greatest_Change', 'Years_Since_Last_Change',
 #                            'Elevation', 'Aspect', 'Aspect_cos', 'Slope', 'TWI', 'TSRI')
-########### TO DEL ###########  
-
-  names(exvars.stack) <- vars
+########### TO DEL ###########
 
   nblocks = min(detectCores(), nrow(poly.training.validation@data))
   sizeBlocks <- ceiling(nrow(poly.training.validation@data)/nblocks)
@@ -355,8 +355,11 @@ for (z in 1:length(paramsGL$zones)) {
   
   stopCluster(cl)
   
+#------------ TO UNCOMMENT -----------------  
 #   cmd <- sprintf('unlink(file.path("%s", "UTM_%s", fsep = .Platform$file.sep), recursive = T, force = T)', Landsat_dir, zone.nr)
 #   eval(parse(text=cmd))
+#------------ TO UNCOMMENT -----------------  
+  
 
 ########### TO DEL ###########  
 #   for (var in vars){
@@ -385,11 +388,14 @@ for (z in 1:length(paramsGL$zones)) {
   long.lat <- as.data.frame(coordinates(spTransform(cpt.poly.training.validation, CRS("+proj=longlat"))))
   daylight <- lat_2_daylight(long.lat[,2], params2$jul.day)
   trends <- as.data.frame(cbind(long.lat, daylight))
-  colnames(trends) <- trends.var.names.short
+  colnames(trends) <- trends.names.sh
   
-  ##bind training polygon information with extracted explanatory variables and polygon coordinates
+  UTMzone.ID <- as.data.frame(rep(zone.nr, nrow(cpt.poly.training.validation)))
+  colnames(UTMzone.ID) <- "UTMzone"
+  
+  ##bind training polygon information with UTMzone ID, extracted explanatory variables and trends (coordinates, etc.)
   FCID <- cpt.poly.training.validation@data[,c("FCID","POLY250ID","TV")]
-  full.table[[z]] <- cbind(FCID, exvars.extract, trends)
+  full.table[[z]] <- cbind(FCID, UTMzone.ID, exvars.extract, trends)
   
   ## clock UTM zone time
   temp.toc <- proc.time()-temp.tic[3]
@@ -402,17 +408,16 @@ full.df <- as.data.frame(rbindlist(full.table))
 all.bands <- as.matrix(full.df[, c("b1", "b2", "b3", "b4", "b5", "b7")])
 TC.list <- bands_2_TC(all.bands)
 TC.df <- cbind(TC.list$TCs, TC.list$TCang, TC.list$TCdist)
-colnames(TC.df) <- TC.var.names.short
+colnames(TC.df) <- TC.names.sh
 
 ## add the 5 new TC components
 full.df <- cbind(full.df, TC.df)
 
-## reorder column to match predefined order 
-full.df <- full.df[, c("FCID","POLY250ID","TV", as.vector(params2$var.names.short))] 
+## reorder columns to match predefined order and remove column ID
+full.df <- full.df[, c("FCID", "POLY250ID", "TV", "UTMzone", unlist(params2$var.names.short))] 
 
 ## export full.df (former "poly.training.validation.exvars.extract") as csv
 write.csv(full.df, file = file.path(base_wkg_dir, "poly_training_validation_exvars_extract.csv", sep = ''))
-
 
 ## clock global time
 toc <- proc.time()-tic[3]
@@ -423,6 +428,7 @@ print(end.message)
 unlink(file.path(base_wkg_dir, "log_prog2.txt", sep = ''), recursive = T, force = T)
 list.to.print <- append(copy.time.UTMzone, end.message)
 lapply(list.to.print, write, file.path(base_wkg_dir, "log_prog2.txt", sep = ''), append=TRUE)
+
 
 
 

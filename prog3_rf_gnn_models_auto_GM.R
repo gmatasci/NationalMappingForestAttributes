@@ -82,7 +82,7 @@ print('Prog3, modeling')
 wkg_dir = base_wkg_dir
 results_dir = base_results_dir
 
-setwd(wkg_dir)
+# setwd(wkg_dir)
 
 # ## set basepath
 # basepath<-"F:/SK_nn_forest/GeordieWorking/wkg/new_model"
@@ -91,11 +91,11 @@ setwd(wkg_dir)
 
 ##load plot training and validation data for lidar metrics and derived structural attributes (old "str", for structural)
 ##subset to only training data
-Y.trn.val <- read.csv(file.path(wkg_dir, paste(zone,"_lidar_metrics_mean_training_validation.csv",sep = ''), fsep = .Platform$file.sep))
+Y.trn.val <- read.csv(file.path(base_wkg_dir, "lidar_metrics_mean_training_validation.csv", fsep = .Platform$file.sep))
 Y.trn.val <- Y.trn.val[,-1] # remove 1st column X
 
 ##load explanatory variables extracted for training plots (old "env" for environment)
-X.trn.val <- read.csv(file.path(wkg_dir, paste(zone,"_poly_training_validation_exvars_extract.csv",sep = ''), fsep = .Platform$file.sep))
+X.trn.val <- read.csv(file.path(base_wkg_dir, "poly_training_validation_exvars_extract.csv", fsep = .Platform$file.sep))
 
 ##change POLY250ID to FCID in str data
 names(Y.trn.val)[names(Y.trn.val)=="POLY250ID"] <- "FCID"

@@ -37,8 +37,8 @@
 ##----------------------
 # - "<UTMzone>_poly_250m_training_validation.shp": (for prog2) polygon shp with selected polygons (after recheck for 9-plots/polyg after subsetting wrt availability of both LiDAR and forest attributes)
 # - "<UTMzone>_cpt_poly_250m_training_validation.shp": (for prog2) point shp with centerpoints of selected polygons 
-# - "<UTMzone>_pts9_poly_250m_training_validation.shp": point shp with all 9 plots within selected polygons (just to visually check 9 plots configurations, not used anymore later on)
-# - "lidar_metrics_mean_training_validation.csv": csv table with all observed LiDAR and forest attributes (Y) for selected TRN and VAL samples (3x3 polygons with average plot values) for all UTM zones
+# - "<UTMzone>_pts9_poly_250m_training_validation.shp": point shp with all 3x3 = 9 plots or just 1 plot within selected polygons (just to visually check 9 plots configurations, not used anymore later on)
+# - "lidar_metrics_mean_training_validation.csv": (for prog3a and prog3) csv table with all observed LiDAR and forest attributes (Y) for selected TRN and VAL samples (3x3 polygons with average plot values or just single plot value) for all UTM zones
 
 
 #-----------------------------------------------------------------
@@ -94,8 +94,7 @@ list.of.packages <- c("rgdal",
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]   # named vector members whose name is "Package"
 if(length(new.packages)) install.packages(new.packages)
 for (pack in list.of.packages){
-  cmd=sprintf('library(%s)', pack)
-  eval(parse(text=cmd))
+  library(pack, character.only=TRUE)
 }
 
 tic <- proc.time() # start clocking global time
@@ -112,9 +111,8 @@ full.df <- foreach (z = 1:length(paramsGL$zones), .combine='rbind', .packages=li
   zone = paramsGL$zones[z]
   print(paste('Prog1, TRN/VAL splitting on' ,zone))   # converts its arguments (via as.character) to character strings, and concatenates them (separating them by the string given by sep or by a space by default)
   wkg_dir = file.path(base_wkg_dir, zone, fsep = .Platform$file.sep)
-  results_dir = file.path(base_results_dir, zone,fsep = .Platform$file.sep)
 
-  setwd(wkg_dir)
+  # setwd(wkg_dir)
 
   ## load lidar veg metrics database
   ## load lidar biomass and inventory attributes database
@@ -146,6 +144,12 @@ full.df <- foreach (z = 1:length(paramsGL$zones), .combine='rbind', .packages=li
   ############### TO DEL
   ############## lidar.hex.centerpoints <- readOGR(dsn = wkg_dir, layer = paste(zone,"_HexPts_250m", sep='')) # largest polyg subset, the one with all polygs, USED TO PRODUCE SHP "UTMXXX_sample_250m_poly_centerpt"
   ############### also all hex centerpoints snapped yo lidat pointds
+  
+  
+  ## check if coordinate systems are the same between shapefiles
+  if ( !all(sapply(list(proj4string(lidar.sample), proj4string(lidar.sample.polygons), proj4string(lidar.sample.polygons.centerpoints)), FUN = identical, proj4string(lidar.pts.fc))) ) {
+    stop(sprintf("%s: projections of shapefiles loaded in prog1 do not match.", zone))
+  }
   
   ## check names dim and length of lidar datasets
   names(lidar.metrics.1streturns)
@@ -233,7 +237,7 @@ full.df <- foreach (z = 1:length(paramsGL$zones), .combine='rbind', .packages=li
   }
   
   ## histogram of cv_elev_p95
-  str <- file.path(wkg_dir, paste(zone, "_hist_cv_elev.pdf", sep=''))
+  str <- file.path(base_figures_dir, paste(zone, "_hist_cv_elev.pdf", sep=''))
   pdf(str)
     hist(cv.elev.p95$cv_elev_p95, breaks=20)
   dev.off()
