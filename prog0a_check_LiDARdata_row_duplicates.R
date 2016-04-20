@@ -5,11 +5,12 @@
 ## TO DO
 ##----------------------
 
-## STILL TO DO
+#### STILL TO DO ####
+# - test foreach without doParallel things before
 # - run before prog0 to check all files loaded
 # - run similar script after prog1 with all produced files
 
-## SOLVED
+#### SOLVED ####
 
 #-----------------------------------------------------------------
 #-------------------------     START     -------------------------
@@ -54,7 +55,6 @@ tic <- proc.time() # start clocking global time
 
 cl <- makeCluster(nr.clusters)
 registerDoParallel(cl)
-getDoParWorkers()
 ## assigns to full.df the row-wise binding of the last unassigned object (dataframe) of the loop (in this case the one formed with "merge(pts9.mean.me....")
 full.df <- foreach (z = 1:length(paramsGL$zones), .combine='rbind', .packages=list.of.packages) %dopar% {   #add .verbose=TRUE for more info when debugging
 # for (z in 1:length(paramsGL$zones)) {

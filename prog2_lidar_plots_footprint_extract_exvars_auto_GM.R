@@ -7,32 +7,21 @@
 ## TO DO
 ##----------------------
 
-## STILL TO DO
-# - convert "Year of " variables to "Years since" to avoid weird averages
-# - adapt behavior of params2$pred.names.lg and params2$pred.names.sh wrt list vs vector
-# -TXOMIN: check extents (Topo by Geordie vs rest) -- Geordie has a script to change and resave all NTEMS layers at the new narrow extent (less overlap) with the same folder structure
+#### STILL TO DO ####
+# - NTEMS tagliati al posto sbagliato, extent non e' uguale ma la cosa e' facilissima da risolvere: altro extract separato per le Topo (che stupido...si poteva fare anche prima!): training OK ma in test ci vuole overlap per applicare il modello allo stack di rasters
 # - check projections to ensure we're sampling proper locations
-# - check var names wrt final df (35 vs 32 cols)
-# - how to ignore unclassified in Change_attribution? 
 # - hours of daylight from lat long -- only a function of Lat, annual averages out, length of day at Aug 1st is better
-# -DOUG: climate variables at 1km (finer res?)
-# - differences in the rasters read here between Harold's files (eg. "Mosaic_PreChange_persistence_2010.img") and NTEMS ones 
-#   (eg."SRef_13S_PreChange_persistence.dat"). Apparently not only in terms of the extent but also in terms of pixel values.
-# - Keep following predictors? 
-#     disturbed -- No, info included in "First_Change_Year"
-#     Years_Since_Greatest_Change, Years_Since_Last_Change  Years_Since_First_Change -- No, included in "_Change_Year" variables.
-#     Aspect, Aspect_cos -- ???
 # - ############# = TODEL
 # - check weighted average over 25m unit for all layers
-# - check metric for disturbed and undisturbed polygons... to do (all these histograms that are now removed)?
-# - TSRI different values the two different layers
 # - rastertemp directory is used?
 # - !!! uncomment unlink() !!!
-# - !!! uncomment params2$var.names.short !!!
+# - !!! uncomment params2$pred.names.sh !!!
+# - !!! uncomment ctp.poly. in extract() !!!
 # - prior to actual run, delete all UTMzones folders in Landsat_dir E:\NTEMS otherwise copy_paste_UTMdata() will not be run
+# - test with new ceiling() in parallel extract on blocks of poly.val
 
 
-## SOLVED
+#### SOLVED ####
 # -V why weights = FALSE ? -- was wrong in Harolds version: should be set as TRUE to have weighted averages
 # -V why not extracting VAL data at the same time? Employed only at the very end to assess models' accuracy: see "grep -r -n 'TV == "VALIDATION"' *" run in "cd X:/Harolds_orginal_work/SK_nn_forest/sk_docs_code/Rcode"
 # -V script between this and rf_gnn should be the one that takes train and val points and merges them by ecozone -- we don't do that
@@ -51,7 +40,23 @@
 # -V how to aggregate change classes (unclass)?  -- leave them like that with 10 classes (and separated 'unclassified' classes), we can always merge them later on
 # -V use 500m hexag? -- let's keep 250m and try to model things with a RF on 100'000+ points (parallel!)
 # -V no point in saving a dataset (table) for mapping, do a script creating variables on the fly for prediction/mapping -- yes, thats the weay to do it, consider saving a TC components file (5 layers) with the new narrow extent
-# -V add ArcGIS/ArcPy AreaSolarRadiation() ? -- no, super-slow to compute
+# -V add ArcGIS/ArcPy AreaSolarRadiation() ? -- no, super-slow to compute and already included in TSRI
+# -v check extents (Topo by Geordie vs rest) -- Geordie has a script to change and resave all NTEMS layers at the new narrow extent (less overlap) with the same folder structure
+# -V convert "Year of " variables to "Years since" to avoid weird averages
+# -V adapt behavior of params2$pred.names.lg and params2$pred.names.sh wrt list vs vector
+# -V how to ignore unclassified in Change_attribution? -- we'll use it with all the classes separated at the moment
+# -V Keep following predictors? 
+#     disturbed -- No, info included in "First_Change_Year"
+#     Years_Since_Greatest_Change, Years_Since_Last_Change  Years_Since_First_Change -- Yes, included instead of "_Change_Year" variables to be able to take averages
+#     Aspect, Aspect_cos -- no, included in TSRI, TWI
+# -V Differences in the rasters read here between Harold's files (eg. "Mosaic_PreChange_persistence_2010.img") and NTEMS ones 
+#   (eg."SRef_13S_PreChange_persistence.dat"). Apparently not only in terms of the extent but also in terms of pixel values. -- Not to pay attention to bc layers have been recomputed since when Harlod did his study
+# -V check metric for disturbed and undisturbed polygons... to do (all these histograms that are now removed)? -- check instead histograms for all UTM zone separately, scatterplots, etc.
+# -V climate variables at 1km (finer res?) -- Resolution is 1KM, Doug is not sure precipitation will help, Temp probably will (for prediciting high trees) and he's investigating how to integrate these layers (12 monthly measurements over several years), wait for his results.
+# -V feasible to recompute on the fly the new variables for mapping phase? -- Yes, but let's try to stick to raw variables as much as possible
+# -V yr of to yrs since: params2$min.year.of <- 1984, params2$max.year.of <- 2011 ?? -- No, better to keep Year_of, sample with NN and plot relationships only for year_of != 0
+# -V use nearest neighbor for sampling years layers (no average) -- OK like that
+# -V TSRI different values the two different layers -- layers have been recomputed since Harold's study
 
 
 ##----------------------
@@ -78,57 +83,81 @@ rm(list=ls()) # clear all variables
 param_file = "D:/Research/ANALYSES/NationalImputationForestAttributes/BAP_Imputation_working/wkg/AllUTMzones_paramsGL.Rdata"
 load(param_file)
 
+#-----------------
+#!!!!!!!!!!!!!!!!!!  NO 11S which gives errors
+paramsGL$zones <- c('UTM8N', 'UTM9N', 'UTM9S', 'UTM10N', 'UTM10S', 'UTM11N', 'UTM12N', 'UTM12S', 'UTM13S','UTM14S','UTM15S', 'UTM16S' ,'UTM17S', 'UTM18S' ,'UTM19S' ,'UTM20S' ,'UTM21S')
+#-----------------
+#!!!!!!!!!!!!!!!!!!
+
 source("Functions_NatImp.R")
 
 ##----------------------------
 ## SCRIPT SPECIFIC PARAMETERS
 ##----------------------------
 
+##!!!!!!!!!!!!!!!!!!!
 ## Prior to actual run, delete all UTMzones folders in Landsat_dir E:\NTEMS otherwise copy_paste_UTMdata() will not be run
+##!!!!!!!!!!!!!!!!!!!
 params2 <- list()
 
+## .lg names are generally used to load files, .sh are shorter dataframe column names
+
+##---------------
+## 34 predictors:
+
+## 6 input spectral bands
 bands.names.lg <- list('band1', 'band2', 'band3', 'band4', 'band5', 'band7')
 bands.names.sh <- list('b1', 'b2', 'b3', 'b4', 'b5', 'b7')
 
+## 5 derived Tasseled Cap components (added in the very end)
 TC.names.lg <- list('TC_Brightness', 'TC_Greenness', 'TC_Wetness', 'TC_Angle', 'TC_Distance')  
 TC.names.sh <- list('TCB', 'TCG', 'TCW', 'TCA', 'TCD')
 
+## 1 Vegetation indices
+VI.names.lg <- list('Normalized Difference Vegetation Index', 'Enhanced Vegetation Index', 'Normalized Burn Ratio')  
+VI.names.sh <- list('NDVI', 'EVI', 'NBR')
+
+## 11 averageable change variables (on which to apply extract() based on polygons shapefile)
 cng.names.lg <- list("PreChange_persistence", "PreChange_magnitude_variation", "PreChange_evolution_rate", 
                         "Change_persistence", "Change_magnitude_variation", "Change_rate",
                         "PostChange_persistence", "PostChange_magnitude_variation", "PostChange_evolution_rate",
-                        "Greatest_Change_Year", "Last_Change_Year", "Last_Change_persistence", "First_Change_Year", "First_Change_persistence"
+                        "First_Change_persistence", "Last_Change_persistence" 
                         )
 cng.names.sh <- list("PreCh_pers", "PreCh_mag", "PreCh_er", 
                         "Ch_pers", "Ch_mag", "Ch_er",
                         "PostCh_pers", "PostCh_mag", "PostCh_er",
-                        "GreatCh_yr", "LastCh_yr", "LastCh_pers", "FirstCh_yr", "FirstCh_pers"
+                        "FirstCh_pers", "LastCh_pers"
                         )
 
+## 3 unaverageable "years of" change variables (separate extract())
+year.of.cng.names.lg <- list("First_Change_Year", "Last_Change_Year", "Greatest_Change_Year")
+year.of.cng.names.sh <- list("FirstCh_yr", "LastCh_yr", "GreatCh_yr")
+
+## 1 categorical layer of type of changes
 cngattr.names.lg <- list("Change_attribution")
 cngattr.names.sh <- list("Ch_attr")
 
+## 4 topography related variables
 topo.names.lg <- list("Elevation", "Slope", "Topographic_wetness_index", "Topographic_solar_radiation_index")
 topo.names.sh <- list("Elev", "Slope", "TWI", "TSRI")
 
+## 3 continuous variables for de-trending
 trends.names.lg <- list("Longitude", "Latitude", "Hours_of_daylight")
 trends.names.sh <- list("Long", "Lat", "Daylight")
 
-params2$pred.names.lg <- list(bands=bands.names.lg, TC=TC.names.lg, cng=cng.names.lg, cngattr=cngattr.names.lg, trends=trends.names.lg)
-params2$pred.names.sh <- list(bands=bands.names.sh, TC=TC.names.sh, cng=cng.names.sh, cngattr=cngattr.names.sh, trends=trends.names.sh)
-
-
-params2$jul.day <- 213  # compute length of daylight for August 1st
+## to compute length of daylight for August 1st
+params2$jul.day <- 213
 
 ## USE THIS TILL ALL LAYERS ARE READY WITH SAME EXTENT
-params2$var.names.long <- c(bands.names.lg, TC.names.lg, cng.names.lg, cngattr.names.lg, trends.names.lg)
-params2$var.names.short <- c(bands.names.sh, TC.names.sh, cng.names.sh, cngattr.names.sh, trends.names.sh)
+params2$pred.names.lg <- list(bands=bands.names.lg, TC=TC.names.lg, VI=VI.names.lg, cng=cng.names.lg, yrs=year.of.cng.names.lg, cngattr=cngattr.names.lg, trends=trends.names.lg)
+params2$pred.names.sh <- list(bands=bands.names.sh, TC=TC.names.sh, VI=VI.names.sh, cng=cng.names.sh, yrs=year.of.cng.names.sh, cngattr=cngattr.names.sh, trends=trends.names.sh)
 
 ##-------------- TO UNCOMMENT ----------------------
-# params2$var.names.long <- c(bands.names.lg, TC.names.lg, cng.names.lg, cngattr.names.lg, topo.names.lg, trends.names.lg)
-# params2$var.names.short <- c(bands.names.sh, TC.names.sh, cng.names.sh, cngattr.names.sh, topo.names.sh, trends.names.sh)
+# params2$pred.names.lg <- list(bands=bands.names.lg, TC=TC.names.lg, VI=VI.names.lg, cng=cng.names.lg, yrs=year.of.cng.names.lg, cngattr=cngattr.names.lg, topo=topo.names.lg, trends=trends.names.lg)
+# params2$pred.names.sh <- list(bands=bands.names.sh, TC=TC.names.sh, VI=VI.names.sh, cng=cng.names.sh, yrs=year.of.cng.names.sh, cngattr=cngattr.names.sh, topo=topo.names.sh, trends=trends.names.sh)
 ##-------------- TO UNCOMMENT ----------------------
 
-params2$disk.names <- list("//2234b/j", "//Frst-cdw-2231j/j", "//Frst-cdw-2231j/h", "//Frst-cdw-2231j/f")
+params2$disk.names <- list("//2234b/I", "//2234b/N")
 
 ## not used so far as nr available cores defines block size
 # params2$sizeBlocks <- 200   
@@ -153,7 +182,7 @@ list.of.packages <- c("rgdal",
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]   # named vector members whose name is "Package"
 if(length(new.packages)) install.packages(new.packages)
 for (pack in list.of.packages){
-  library(pack, character.only=TRUE)
+  library(pack, character.only=T)
 }
 
 tic <- proc.time() # start clocking global time
@@ -176,7 +205,7 @@ for (z in 1:length(paramsGL$zones)) {
   cmd <- sprintf('folder.exists.bool <- file.exists(file.path("%s", "UTM_%s", fsep = .Platform$file.sep))', Landsat_dir, zone.nr)
   eval(parse(text=cmd))
   if ( !folder.exists.bool ) {
-    log.copy.paste <- copy_paste_UTMdata(params2$disk.names, zone, cng.names.lg, Landsat_dir)
+    log.copy.paste <- copy_paste_UTMdata(params2$disk.names, zone, append(cng.names.lg, year.of.cng.names.lg), Landsat_dir)
     if (length(log.copy.paste$list.missing.files)>0) {
       stop(sprintf("Missing files for zone %s", zone))
     }
@@ -193,43 +222,21 @@ for (z in 1:length(paramsGL$zones)) {
   ## load polygon centerpoint shapefile to get FCID
   ## load training and validation polygons
   cpt.poly.training.validation <-  readOGR(dsn = wkg_dir, layer = paste(zone,"_cpt_poly_250m_training_validation",sep = '')) ## 4340 polygons
-  
   poly.training.validation <-  readOGR(dsn = wkg_dir, layer = paste(zone,"_poly_250m_training_validation",sep = '')) ## 4340 polygons
 
-########### TO DEL ###########
-#   extract test area from descending node WRS2
-#   wrs2_descending <-  readOGR(dsn = "F:/SK_nn_forest/sk_data/wrs2", layer = "wrs2_descending") ## 288892 polygons
-#   subset to only wrspr 39022
-#   wrs2_39022 <- subset(wrs2_descending, WRSPR == 39022 )
-#   check proj
-#   proj4string(wrs2_39022)
-#   proj4string(TC)
-#   reproject transform  to match rasters 
-#   wrs2_39022 <- spTransform(wrs2_39022, CRS(proj4string(TC)))
-#   write shapefile
-#   writeOGR(wrs2_39022 , "J:\\sk_data\\wrs2", "wrs2_39022", driver="ESRI Shapefile")
-########### TO DEL ###########
   
-
   ##--------------------------------
   ##         load rasters
   ##--------------------------------
   
-  ########### TO DEL ###########
-  ## disturbance binary mask
-  # Disturbed <- raster(file.path(change_dir, "Disturbed_binary_2010.img", fsep = .Platform$file.sep))  # not in Zald RSE 2016
-  ## tassel cap BGW angle and distance (5 names)
-  # TC <- stack("X:/ForGiani_WorkingImputation/data/tc_composites/TC_Mosaic_2010.img")
-  ########### TO DEL ###########
-  
   ## Landsat bands for year 2010 (6 layers), TC layer will be computed later (first for TRN/VAL and later for all Canada when mapping)
-  cmd <- sprintf('Bands <- brick(file.path("%s", "UTM_%s", "Results", "proxy_values", "SRef_UTM%s_2010_proxy.dat", fsep = .Platform$file.sep))', Landsat_dir, zone.nr, zone.nr)  
+  cmd <- sprintf('Bands <- brick(file.path("%s", "UTM_%s", "Results", "proxy_values", "SRef_UTM%s_2010_proxy_v2.dat", fsep = .Platform$file.sep))', Landsat_dir, zone.nr, zone.nr)  
   eval(parse(text=cmd))
   
   ## change metrics (14 layers in NTEMS Results/Changes folder)
   ## read raster layers from folder <UTM_zone.nr>\Results\Change_metrics\
   ## Landsat_dir goes at the end as a variable bc if left inside sprintf as a string is not detected by foreach and thus not passed to the cores (error: "object 'Landsat_dir' not found")
-  for (var in cng.names.lg) {
+  for (var in append(cng.names.lg, year.of.cng.names.lg)) {
     cmd <- sprintf('%s <- raster(file.path("%s", "UTM_%s", "Results", "Change_metrics", "SRef_%s_%s.dat", fsep = .Platform$file.sep))', var, Landsat_dir, zone.nr, zone.nr, var)  
     eval(parse(text=cmd))
   }
@@ -244,147 +251,117 @@ for (z in 1:length(paramsGL$zones)) {
   Topographic_wetness_index <- raster(file.path(topo_dir, "TWI", paste(zone, "_TWI.dat", sep= ''), fsep = .Platform$file.sep))
   Topographic_solar_radiation_index <- raster(file.path(topo_dir, "TSRI",  paste(zone, "_TSRI.dat", sep= ''), fsep = .Platform$file.sep))
   
-########### TO DEL ###########
-## corresponds to loading the following  
-#   PreChange_persistence <- raster(file.path(change_dir, "Mosaic_PreChange_persistence_2010.img", fsep = .Platform$file.sep))
-#   PreChange_magnitude <- raster(file.path(change_dir, "Mosaic_PreChange_magnitude_variation_2010.img", fsep = .Platform$file.sep))
-#   PreChange_evolution <- raster(file.path(change_dir, "Mosaic_PreChange_evolution_rate_2010.img", fsep = .Platform$file.sep))
-#   PostChange_persistence <- raster(file.path(change_dir, "Mosaic_PostChange_persistence_2010.img", fsep = .Platform$file.sep))
-#   PostChange_magnitude <- raster(file.path(change_dir, "Mosaic_PostChange_magnitude_variation_2010.img", fsep = .Platform$file.sep))
-#   PostChange_evolution <- raster(file.path(change_dir, "Mosaic_PostChange_evolution_rate_2010.img", fsep = .Platform$file.sep))
-#   Greatest_Change_Year <- raster(file.path(change_dir, "Mosaic_Greatest_Change_Year_2010.img", fsep = .Platform$file.sep))  # not in Zald RSE 2016
-#   Last_Change_Year <- raster(file.path(change_dir, "Mosaic_Last_Change_Year_2010.img", fsep = .Platform$file.sep))   # not in Zald RSE 2016
-#   Last_Change_persistence <- raster(file.path(change_dir, "Mosaic_Last_Change_persistence_2010.img", fsep = .Platform$file.sep))  # not in Zald RSE 2016
-#   First_Change_Year <- raster(file.path(change_dir, "Mosaic_First_Change_Year_2010.img", fsep = .Platform$file.sep))  # not in Zald RSE 2016
-#   First_Change_persistence <- raster(file.path(change_dir, "Mosaic_First_Change_persistence_2010.img", fsep = .Platform$file.sep))  # not in Zald RSE 2016
-#   Change_rate <- raster(file.path(change_dir, "Mosaic_Change_rate_2010.img", fsep = .Platform$file.sep))
-#   Change_persistence <- raster(file.path(change_dir, "Mosaic_Change_persistence.img", fsep = .Platform$file.sep))
-#   Change_magnitude <- raster(file.path(change_dir, "Mosaic_Change_magnitude_variation_2010.img", fsep = .Platform$file.sep))
-
-#   Elevation <- raster(file.path(topo_dir, "CDED.img", fsep = .Platform$file.sep))
-#   Aspect <- raster(file.path(topo_dir, "ASPECT_DEG.img", fsep = .Platform$file.sep))  # not in Zald RSE 2016
-#   Aspect_cos <- raster(file.path(topo_dir, "ASPECT_COS.img", fsep = .Platform$file.sep))  # not in Zald RSE 2016
-#   Slope <- raster(file.path(topo_dir, "SLOPE_DEG.img", fsep = .Platform$file.sep))
-#   TWI <- raster(file.path(topo_dir, "TWI.img", fsep = .Platform$file.sep))
-#   TSRI <- raster(file.path(topo_dir, "TSRI.img", fsep = .Platform$file.sep))
   
-## these files are not in NTEMS folder but convey the same info as "Greatest_Change_Year", "Last_Change_Year" and "First_Change_Year". 
-#   Years_Since_Greatest_Change <- raster(file.path(change_dir, "Mosaic_Years_Since_Greatest_Change_2010.img", fsep = .Platform$file.sep))
-#   Years_Since_Last_Change <- raster(file.path(change_dir, "Mosaic_Years_Since_Last_Change_2010.img", fsep = .Platform$file.sep))  # not in Zald RSE 2016
-#   Years_Since_First_Change <- raster(file.path(change_dir, "Mosaic_Years_Since_First_Change_2010.img", fsep = .Platform$file.sep))  # not in Zald RSE 2016
-  
-#   ##make a rasterstack of all potential explantory variables
-#   exvars.stack <- stack(TC, Disturbed, PreChange_persistence, PreChange_magnitude, PreChange_evolution, PostChange_persistence,
-#                   PostChange_magnitude, PostChange_evolution, Greatest_Change_Year, Last_Change_Year, Last_Change_persistence, 
-#                   First_Change_Year, First_Change_persistence, Change_rate, Change_persistence, Change_magnitude, 
-#                   Years_Since_First_Change, Years_Since_Greatest_Change, Years_Since_Last_Change,
-#                   Elevation, Aspect, Aspect_cos, Slope, TWI, TSRI)
-########### TO DEL ###########  
-  
-  ########### TO DEL ###########  
-  #  ## test with padding (pasting the narrower raster into a blank wider one)
-  #   unfilled.raster <- raster(extent(Bands), ncol=Bands@ncols, nrow=Bands@nrows, crs=proj4string(Bands))
-  #   low.left.coords.unfill <- unfilled.raster@extent[c(1,3)]
-  #   low.left.coords.elev <- Elevation@extent[c(1,3)]
-  #   
-  #   low.left.idx.elev <- round((low.left.coords.elev-low.left.coords.unfill)/30,  digits = 0)
-  #   
-  #   aaa <- unfilled.raster@data[low.left.idx.elev[2]:low.left.idx.elev[2]+Elevation@nrows, low.left.idx.elev[1]:low.left.idx.elev[1]+Elevation@ncols]
-  #   
-  #   NOT WORKING CAUSE CANT ACCESS/WRITE DATA IN A RASTER OBJECT
-  #   unfilled.raster low.left.corner
-  #  
-  #   ## test with mask()
-  #   cmd <- sprintf('non.overl.mask <- raster(file.path("%s", "UTM_%s", "Non_overlapping_mask", "%s_Non_Overlapping_Mask.dat", fsep = .Platform$file.sep))', Landsat_dir, zone.nr, zone)  
-  #   eval(parse(text=cmd))
-  #   Bands.masked <- mask(Bands, non.overl.mask, maskvalue=0)
-  ########### TO DEL ###########
-  
-  special.case.names.sh <- c("GreatCh_yr", "LastCh_yr", "FirstCh_yr")
-  regular.case.idx <- (!cng.names.sh  %in%  special.case.names.sh)
-  
-  XXXXXXXXXXXXXXXXXXXXXXXXXXXX
-  XXXXXXXXXXXXXXXXXXXXXXXXXXXX
-  2 (?) separate extract() to integrate in foreach (rbindlist?)
-  "Ch_attr"
-  
-  
-  vars <- c(bands.names.sh, cng.names.sh[regular.case.idx])
-  str <- paste(c('Bands', cng.names.lg[regular.case.idx]), collapse=", ")
+  ##-------- !!!! --------
+  ## to be use when have topo and other NTEMS data matching in extent
+#   vars.contin <- c(bands.names.sh, cng.names.sh, topo.names.sh)  ## to rename columns of final dataframe
+#   str.contin <- paste(c('Bands', cng.names.lg, topo.names.lg), collapse=", ")   ## creates string of variable names to input in stack()
+  ##-------- !!!! --------
   
   ## to use till we don't have topo and other NTEMS data matching in extent
-  vars <- c(bands.names.sh, cng.names.sh, cngattr.names.sh)
-  str <- paste(c('Bands', cng.names.lg, cngattr.names.lg), collapse=", ")
+  vars.contin <- c(bands.names.sh, cng.names.sh)
+  str.contin <- paste(c('Bands', cng.names.lg), collapse=", ")
   
-#   ## final list to to use when all layers are available
-#   vars <- c(bands.names.sh, cng.names.sh, cngattr.names.sh, topo.names.sh)  ## to rename columns of final dataframe
-#   str <- paste(c('Bands', cng.names.lg, cngattr.names.lg, topo.names.lg), collapse=", ")  ## creates string of variable names to input in stack()
+#### TOPO KO ####  
+#   vars.topo <- c(topo.names.sh)  ## to rename columns of final dataframe
+#   str.topo <- paste(c(topo.names.lg), collapse=", ")   ## creates string of variable names to input in stack()
   
-  cmd <- sprintf("exvars.stack <- stack(%s)", str)  ## stack() already checks if projections of all the layers match
+  vars.years <- year.of.cng.names.sh
+  str.years <- paste(year.of.cng.names.lg, collapse=", ")
+  
+  vars.categ <- cngattr.names.sh
+  str.categ <- paste(cngattr.names.lg, collapse=", ")
+  
+  cmd <- sprintf("exvars.stack.contin <- stack(%s)", str.contin)  ## stack() already checks if projections of all the layers match
   eval(parse(text=cmd))
-  names(exvars.stack) <- vars
+  names(exvars.stack.contin) <- vars.contin
   
+  #### TOPO KO ####  
+#   cmd <- sprintf("exvars.stack.topo <- stack(%s)", str.topo)  ## stack() already checks if projections of all the layers match
+#   eval(parse(text=cmd))
+#   names(exvars.stack.topo) <- vars.topo
+  
+  cmd <- sprintf("exvars.stack.years <- stack(%s)", str.years)  ## stack() already checks if projections of all the layers match
+  eval(parse(text=cmd))
+  names(exvars.stack.years) <- vars.years
+  
+  cmd <- sprintf("exvars.stack.categ <- stack(%s)", str.categ)  ## stack() already checks if projections of all the layers match
+  eval(parse(text=cmd))
+  names(exvars.stack.categ) <- vars.categ
+  
+  #### TOPO KO ####  
   ## check if coordinate systems are the same between raster stack and shapefiles
-  if ( !all(sapply(list(proj4string(poly.training.validation), proj4string(cpt.poly.training.validation)), FUN = identical, proj4string(exvars.stack))) ) {
+#   if ( !all(sapply(list(proj4string(poly.training.validation), proj4string(cpt.poly.training.validation), proj4string(exvars.stack.topo), proj4string(exvars.stack.years), proj4string(exvars.stack.categ)), FUN = identical, proj4string(exvars.stack.contin))) ) {
+#     stop(sprintf("%s: projections of raster stack and shapefiles loaded in prog2 do not match.", zone))
+#   }
+  if ( !all(sapply(list(proj4string(poly.training.validation), proj4string(cpt.poly.training.validation), proj4string(exvars.stack.years), proj4string(exvars.stack.categ)), FUN = identical, proj4string(exvars.stack.contin))) ) {
     stop(sprintf("%s: projections of raster stack and shapefiles loaded in prog2 do not match.", zone))
   }
-  
-########### TO DEL ###########  
-#   vars <- c('TCB', 'TCG', 'TCW', 'TCA', 'TCD', 'Disturbed', 'PreChange_persistence', 'PreChange_magnitude', 'PreChange_evolution', 'PostChange_persistence',
-#                            'PostChange_magnitude', 'PostChange_evolution', 'Greatest_Change_Year', 'Last_Change_Year', 'Last_Change_persistence', 
-#                            'First_Change_Year', 'First_Change_persistence', 'Change_rate', 'Change_persistence', 'Change_magnitude', 
-#                            'Years_Since_First_Change', 'Years_Since_Greatest_Change', 'Years_Since_Last_Change',
-#                            'Elevation', 'Aspect', 'Aspect_cos', 'Slope', 'TWI', 'TSRI')
-########### TO DEL ###########
 
-  nblocks = min(detectCores(), nrow(poly.training.validation@data))
-  sizeBlocks <- ceiling(nrow(poly.training.validation@data)/nblocks)
+  sizeBlocks <- ceiling( nrow(poly.training.validation@data) / min(detectCores(), nrow(poly.training.validation@data)) )  ## to avoid problems when number of rows of the matrix is smaller than the nr of cores 
+  nblocks <- ceiling(nrow(poly.training.validation@data)/sizeBlocks)   ## to avoid problems when sizeBlocks is small (nblocks will allow to cover just a little more, or exactly, the size of data)
   nr.clusters <- nblocks
   cl <- makeCluster(nr.clusters)
   registerDoParallel(cl)
-  getDoParWorkers()
-  exvars.extract <- foreach (blck = 1:nblocks, .combine='rbind', .packages=list.of.packages) %dopar% {   #add .verbose=TRUE for more info when debugging
-  # for (blck in 1:nblocks) {
-    indPart = seq(from=(blck-1)*sizeBlocks+1, to=min(blck*sizeBlocks, nrow(poly.training.validation@data)), by=1)
+  exvars.extract <- foreach (blck = 1:nblocks, .combine='rbind', .packages=list.of.packages) %dopar% {   #add .verbose=T for more info when debugging
+    
+#   nblocks <- 21
+#   for (blck in 20:nblocks) {
+#     sizeBlocks <- 7
+    
+    indPart <- seq(from=(blck-1)*sizeBlocks+1, to=min(blck*sizeBlocks, nrow(poly.training.validation@data)), by=1)
     ## extract mean of exvars weighted by nomralized proportion contribution of each cell in polygon
     ## weights within each polygon sum to 1
     ## automatically assigns an ID starting at 1 block of samples assigned to the cores (to be removed later on bc meaningless)
-    extract(exvars.stack, poly.training.validation[indPart, ], fun = mean, na.rm = FALSE, weights = TRUE, normalizeWeights = TRUE,
-                          cellnumbers = FALSE, small = FALSE, df = TRUE, factors = FALSE, sp = FALSE)  # extract is a function that actually accesses the values of the rasters, MEMORY ISSUES?
+    
+    #------------ TO UNCOMMENT -----------------     
+    exvars.extract.contin <- extract(exvars.stack.contin, poly.training.validation[indPart, ], fun = mean, na.rm = F, weights = T, normalizeWeights = T,
+                          cellnumbers = F, small = F, df = T, factors = F, sp = F)  # extract is a function that actually accesses the values of the rasters, MEMORY ISSUES?
+#     
+#     exvars.extract.topo <- extract(exvars.stack.topo, poly.training.validation[indPart, ], fun = mean, na.rm = F, weights = T, normalizeWeights = T,
+#                                    cellnumbers = F, small = F, df = T, factors = F, sp = F) 
+    #------------ TO UNCOMMENT -----------------  
+    
+#     exvars.extract.contin <- extract(exvars.stack.contin, cpt.poly.training.validation[indPart, ], fun = mean, na.rm = F, weights = T, normalizeWeights = T,
+#                                      cellnumbers = F, small = F, df = T, factors = F, sp = F) 
+    
+    #### TOPO KO ####  
+#     exvars.extract.topo <- extract(exvars.stack.topo, cpt.poly.training.validation[indPart, ], fun = mean, na.rm = F, weights = T, normalizeWeights = T,
+#                                      cellnumbers = F, small = F, df = T, factors = F, sp = F) 
+    
+    exvars.extract.years.of <- extract(exvars.stack.years, cpt.poly.training.validation[indPart, ], na.rm = F,
+                       cellnumbers = F, small = F, df = T, factors = F, sp = F)
+    exvars.extract.years.of$ID <- NULL
+    colnames(exvars.extract.years.of) <- year.of.cng.names.sh
+    
+    ## use cpt.poly.training.validation so that we extract only one single value, that of the pixels right below the center of the plot
+    exvars.extract.categ <- extract(exvars.stack.categ, cpt.poly.training.validation[indPart, ], na.rm = F,
+            cellnumbers = F, small = F, df = T, factors = F, sp = F)
+    exvars.extract.categ$ID <- NULL
+    
+    #### TOPO KO ####  
+#     cbind(exvars.extract.contin, exvars.extract.topo, exvars.extract.years.of, exvars.extract.categ)
+    
+    cbind(exvars.extract.contin, exvars.extract.years.of, exvars.extract.categ)
+    
+    
+    ##---- !!! ---
+    # exvars.extract <- cbind(exvars.extract.contin, exvars.extract.years.since, exvars.extract.categ)
+    ##---- !!! ---
+    
   }
   
   stopCluster(cl)
   
 #------------ TO UNCOMMENT -----------------  
-#   cmd <- sprintf('unlink(file.path("%s", "UTM_%s", fsep = .Platform$file.sep), recursive = T, force = T)', Landsat_dir, zone.nr)
-#   eval(parse(text=cmd))
+  cmd <- sprintf('unlink(file.path("%s", "UTM_%s", fsep = .Platform$file.sep), recursive = T, force = T)', Landsat_dir, zone.nr)
+  eval(parse(text=cmd))
 #------------ TO UNCOMMENT -----------------  
-  
-
-########### TO DEL ###########  
-#   for (var in vars){
-#     cmd=sprintf('hist(exvars.extract$%s)', var)
-#     eval(parse(text=cmd))
-#   }
-#   ##check data with histograms
-#   hist(exvars.extract$TCB)
-#   hist(exvars.extract$TCG)
-#   hist(exvars.extract$TCW)
-#   hist(exvars.extract$TCA)
-#   hist(exvars.extract$TCD)
-#   hist(exvars.extract$Elevation)
-#   hist(exvars.extract$Aspect)
-#   hist(exvars.extract$Aspect_cos)
-#   hist(exvars.extract$Slope)
-#   hist(exvars.extract$TWI)
-#   hist(exvars.extract$TSRI)
-########### TO DEL ###########  
-  
   
   ##delete temp folder with temp rasters
   unlink(raster_tmp_dir, recursive = T, force = T)
   
-  ## coordinates of plot polygons
+  ## coordinates and hrs of daylight of plot polygons
   long.lat <- as.data.frame(coordinates(spTransform(cpt.poly.training.validation, CRS("+proj=longlat"))))
   daylight <- lat_2_daylight(long.lat[,2], params2$jul.day)
   trends <- as.data.frame(cbind(long.lat, daylight))
@@ -406,15 +383,24 @@ for (z in 1:length(paramsGL$zones)) {
 full.df <- as.data.frame(rbindlist(full.table))
 
 all.bands <- as.matrix(full.df[, c("b1", "b2", "b3", "b4", "b5", "b7")])
+
+## compute TCs
 TC.list <- bands_2_TC(all.bands)
 TC.df <- cbind(TC.list$TCs, TC.list$TCang, TC.list$TCdist)
 colnames(TC.df) <- TC.names.sh
 
-## add the 5 new TC components
-full.df <- cbind(full.df, TC.df)
+## compute VI
+NDVI <- (all.bands[,4]-all.bands[,3])/(all.bands[,4]+all.bands[,3])
+EVI <- 2.5*( (all.bands[,4]-all.bands[,3]) / (1 + all.bands[,4] + 6*all.bands[,3] - 7.5*all.bands[,1]) )
+NBR <- (all.bands[,4]-all.bands[,7])/(all.bands[,4]+all.bands[,7])
+VI.df <- as.data.frame(NDVI, EVI, NBR)
+colnames(VI.df) <- VI.names.sh
+
+## add the 5 new TC components and the VI
+full.df <- cbind(full.df, TC.df, VI.df)
 
 ## reorder columns to match predefined order and remove column ID
-full.df <- full.df[, c("FCID", "POLY250ID", "TV", "UTMzone", unlist(params2$var.names.short))] 
+full.df <- full.df[, c("FCID", "POLY250ID", "TV", "UTMzone", unlist(params2$pred.names.sh))] 
 
 ## export full.df (former "poly.training.validation.exvars.extract") as csv
 write.csv(full.df, file = file.path(base_wkg_dir, "poly_training_validation_exvars_extract.csv", sep = ''))
@@ -427,7 +413,7 @@ print(end.message)
 ## write log file
 unlink(file.path(base_wkg_dir, "log_prog2.txt", sep = ''), recursive = T, force = T)
 list.to.print <- append(copy.time.UTMzone, end.message)
-lapply(list.to.print, write, file.path(base_wkg_dir, "log_prog2.txt", sep = ''), append=TRUE)
+lapply(list.to.print, write, file.path(base_wkg_dir, "log_prog2.txt", sep = ''), append=T)
 
 
 

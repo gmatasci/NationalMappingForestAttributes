@@ -12,11 +12,7 @@
 ##----------------------
 
 ## STILL TO DO
-# - build model with proprer data
-# - separate script (not to be run everytime) for model selection called "prog3a_" to see if there
-#   are improvements in predicting response variables on at a time and not as a single multivariate Y: 
-#   this means comparing yaimpute rf, yaimpute gnn, rf, svm, etc.
-# - yaImpute uses a RF with a nrTrees shared across all Ys, so actual nrTrees is nrTrees/nrYs
+# - after selection of the final set of variables save final names, etc.
 
 ## SOLVED
 # -V write script between prog2 and prog3 to group data by ecozone rather than by UTM zone -- no, we run the analysis at the national level with one single model (long, lat & other trends should account)

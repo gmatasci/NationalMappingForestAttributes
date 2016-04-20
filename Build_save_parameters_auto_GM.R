@@ -9,10 +9,11 @@
  rm(list=ls())
  
  paramsGL <- list()
- # paramsGL$zones <- c('UTM8N', 'UTM9N', 'UTM9S', 'UTM10N', 'UTM10S', 'UTM11N', 'UTM11S', 'UTM12N', 'UTM12S', 'UTM13S','UTM14S','UTM15S', 'UTM16S' ,'UTM17S', 'UTM18S' ,'UTM19S' ,'UTM20S' ,'UTM21S')
+ paramsGL$zones <- c('UTM8N', 'UTM9N', 'UTM9S', 'UTM10N', 'UTM10S', 'UTM11N', 'UTM11S', 'UTM12N', 'UTM12S', 'UTM13S','UTM14S','UTM15S', 'UTM16S' ,'UTM17S', 'UTM18S' ,'UTM19S' ,'UTM20S' ,'UTM21S')
  # paramsGL$zones <- c('UTM12S', 'UTM13S', 'UTM14S')
  # paramsGL$zones <- c('UTM13S')
- paramsGL$zones <- c('UTM9S', 'UTM12N', 'UTM13S', 'UTM20S')
+#  paramsGL$zones <- c('UTM9S', 'UTM12N', 'UTM13S', 'UTM20S')
+ # paramsGL$zones <- c('UTM9S', 'UTM12N')
  # paramsGL$zones <- c('UTM13S')
  paramsGL$TARGET_YEAR <- 2010
  paramsGL$syr <- '2010'
@@ -41,6 +42,7 @@
  print(param_file)
  
  
+ ## To run the entire workflow at once: not exactly working!
 #  source('D:/Research/ANALYSES/NationalImputationForestAttributes/BAP_Imputation_working/scripts_NationalImputationForestAttributes/prog0a_check_LiDARdata_row_duplicates.R')
 #  source('D:/Research/ANALYSES/NationalImputationForestAttributes/BAP_Imputation_working/scripts_NationalImputationForestAttributes/prog0_lidar_plots_sampling_auto_GM.R')
 #  source('D:/Research/ANALYSES/NationalImputationForestAttributes/BAP_Imputation_working/scripts_NationalImputationForestAttributes/prog1_training_validation_selection_auto_GM.R')

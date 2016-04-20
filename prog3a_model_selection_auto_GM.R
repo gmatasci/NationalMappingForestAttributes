@@ -8,23 +8,26 @@
 ## TO DO
 ##----------------------
 
-## STILL TO DO
-# - check plots for change vars with new averages and trends
-# - check plot section with new structure 
-# - ANOVA style qplot for catgorical vars
-# - ggpair each type vs the targets: fix loop for dynamic plots (consider copying the same 4 times)
+#### STILL TO DO ####
+# - subsample only for pair.plot and not for hist or rest
 # - implement model selection based on Impute_Vs_predict.R
 # - build model with proprer data
-# - separate script (not to be run everytime) for model selection called "prog3a_" to see if there
-#   are improvements in predicting response variables on at a time and not as a single multivariate Y: 
-#   this means comparing yaimpute rf, yaimpute gnn, rf, svm, etc.
+# - run with final data: comparison between predicting response variables one at a time and not as a single multivariate Y: 
+#   this means comparing yaimpute rf, rf, etc.
 # - yaImpute uses a RF with a nrTrees shared across all Ys, so actual nrTrees is nrTrees/nrYs
+# - check plots for change vars with new averages and trends
+# - make sure Ch_attr is interpreted as a categorical/factor variable by RF and that all the factor values are found in TRN (no new values in VAL), otherwise errors (http://stats.stackexchange.com/questions/29446/random-forest-and-new-factor-levels-in-test-set)
 # - ############# = TODEL
+# - check to see sampled values based on "FCID" or "POLY250ID" from X or Y dataframes loaded here linked to field "POLY250ID" of <UTMzone>_cpt_poly_250m_training_validation.shp (saved in /BAP_Imputation_working/wkg/<UTMzone>/)
+#   then related to <UTMzone>_plot_inventory_attributes2.csv by "unique_id"
 
-## SOLVED
+#### SOLVED ####
 # -V write script between prog2 and prog3 to group data by ecozone rather than by UTM zone -- no, we run the analysis at the national level with one single model (long, lat & other trends should account)
 # -V change loop over ecozones instead of over UTM zones -- no need to do it as we use one single model valid for all Can territory
 # -V multi.hist() per var by UTM zone -- no, only works for dataframes with same nr of columns (UTM zones have different nr of samples)
+# -V ANOVA style qplot for categorical vars -- boxplot of key targets by category for CAN and barplot by UTM zone
+# -V ggpair each type vs the targets: fix loop for dynamic plots (consider copying the same 4 times) -- done with pairs.panels()
+# -V check plots section with new structure
 
 
 ##----------------------
@@ -71,11 +74,21 @@ params3a$targ.attach.names.lg <- list("elev_mean","elev_stddev","elev_p95","elev
                                 "mean_tree_height","dominant_tree_height","loreys_height","basal_area","gross_stem_volume","foliage_biomass",
                                 "branch_biomass","crown_biomass","bark_biomass","wood_biomass","stem_biomass","total_biomass")
 
+params3a$min.year.of <- 1984
 
-# params3a$subs.factor <- 100
-params3a$subs.factor <- 20
+#-----------------
+#!!!!!!!!!!!!!!!!!!  NO 11S which gives errors
+paramsGL$zones <- c('UTM8N', 'UTM9N', 'UTM9S', 'UTM10N', 'UTM10S', 'UTM11N', 'UTM12N', 'UTM12S', 'UTM13S','UTM14S','UTM15S', 'UTM16S' ,'UTM17S', 'UTM18S' ,'UTM19S' ,'UTM20S' ,'UTM21S')
+params3a$subs.factor <- 60
+# paramsGL$zones <- c('UTM13S')
+# params3a$subs.factor <- 4
+#-----------------
+#!!!!!!!!!!!!!!!!!!
+ 
+params3a$Ch_attr.classes <- c("No change", "Fire", "Harvesting", "Non-stand replacing", "Road", "Unclassified (Fire)", "Unclassified (Harvesting)", 
+                                 "Unclassified (Non-stand replacing)", "Unclassified (Road)", "Unclassified (Well-site)")
 
-params3a$groups.to.plot <- list('Bands', 'TCcomps', 'Change', 'PrePostChange', 'GreatestLastFirstChange', 'ChangeAttribution', 'Trends')
+params3a$groups.to.plot <- list('Bands', 'TCcomps_VI', 'Change', 'Pre_Post_Change', 'Years', 'ChangeAttribution', 'Trends')
 
 param_file_prog3a = file.path(base_wkg_dir, 'AllUTMzones_params3a.Rdata', fsep = .Platform$file.sep) 
 save(params3a, file = param_file_prog3a)
@@ -84,7 +97,8 @@ save(params3a, file = param_file_prog3a)
 ##----------------------------
 ## LOAD PACKAGES
 ##----------------------------
-list.of.packages <- c("ggplot2", 
+list.of.packages <- c("ggplot2",
+                      "gridExtra",
                       "GGally",
                       "psych",
                       "randomForest",
@@ -127,10 +141,19 @@ if ( !identical(X.trn.val$FCID, Y.trn.val$FCID) ) {
 ## DESCRIPTIVE PLOTS
 ##------------------------
 
-## create indices for subsampling 
-plot.idx <- sample(1:nrow(X.trn.val), round(nrow(X.trn.val)/params3a$subs.factor))
+CAN.subdir <- file.path(base_figures_dir, "Relations_CAN_level", fsep = .Platform$file.sep)
+UTMzone.subdir <- file.path(base_figures_dir, "Histograms_UTMzone_level", fsep = .Platform$file.sep)
 
-## Canadian level (merged UTM zones) bivariate scatterplots
+if (! file.exists(CAN.subdir)){dir.create(CAN.subdir, showWarnings = F, recursive = T)}
+if (! file.exists(UTMzone.subdir)){dir.create(UTMzone.subdir, showWarnings = F, recursive = T)}
+
+
+## create indices for subsampling 
+set.seed(2010)
+
+plot.idx.init <- sample(1:nrow(X.trn.val), round(nrow(X.trn.val)/params3a$subs.factor))
+UTM.idx <- which(paste('UTM', X.trn.val$UTMzone, sep='') %in% paramsGL$zones)
+plot.idx <- plot.idx.init[plot.idx.init %in% UTM.idx]
 
 Y.data.to.plot <- Y.trn.val[plot.idx, unlist(params3a$targ.key.names.lg)] ## select Y columns to plot
 colnames(Y.data.to.plot) <- params3a$targ.key.names.sh
@@ -138,24 +161,40 @@ colnames(Y.data.to.plot) <- params3a$targ.key.names.sh
 gr.idx <- 1
 for (pred.gr.names in params3a$groups.to.plot) {
   gr.name <- unlist(params3a$groups.to.plot[gr.idx])
+  gr.idx <- gr.idx+1
   
   if (gr.name == 'ChangeAttribution') {
-    str <- file.path(base_figures_dir, sprintf("CAN_boxplots_keyTarg_VS_%s.pdf", gr.name), sep='')
-    pdf(str)
-      par(mfrow=c(1,2))
-      describeBy(Y.data.to.plot$pct_1r_ab2, group = X.trn.val[, "Ch_attr"])
-      qplot(Ch_attr, Y.data.to.plot$pct_1r_ab2, data=X.trn.val, geom="boxplot")
-      describeBy(Y.data.to.plot$tot_biom, group = X.trn.val[, "Ch_attr"])
-      qplot(Ch_attr, Y.data.to.plot$tot_biom, data=X.trn.val, geom="boxplot")
-      title(sprintf("%s VS pct_1ret_ab_2m and tot_biom", gr.name), outer=TRUE)
+    pred.names <- "Ch_attr"
+    X.data.to.plot <- as.data.frame(X.trn.val[plot.idx, pred.names])
+    colnames(X.data.to.plot) <- pred.names
+    X.data.to.plot$Ch_attr <- as.factor(X.data.to.plot$Ch_attr)
+    df.to.plot <- cbind(X.data.to.plot, Y.data.to.plot)
+    df.to.plot$Ch_attr <- as.factor(df.to.plot$Ch_attr)
+    
+    ## Canadian level (merged UTM zones) boxplots by Change_attr (categorical var)
+    plot1 <- ggplot(df.to.plot, aes(x=Ch_attr, y=pct_1r_ab2, fill=Ch_attr)) + 
+      geom_boxplot(notch=F, outlier.shape = NA) + 
+      scale_x_discrete(labels=params3a$Ch_attr.classes[1+as.integer(levels(df.to.plot$Ch_attr))]) + 
+      theme(axis.text.x = element_text(angle = 90, hjust = 1))
+    plot2 <- ggplot(df.to.plot, aes(x=Ch_attr, y=tot_biom, fill=Ch_attr)) + 
+      geom_boxplot(notch=F, outlier.shape = NA) + 
+      scale_x_discrete(labels=params3a$Ch_attr.classes[1+as.integer(levels(df.to.plot$Ch_attr))]) + 
+      theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+      ylim(0, 20000)
+    str <- file.path(CAN.subdir, sprintf("CAN_boxplots_keyTarg_VS_%s.pdf", gr.name), sep='')
+    pdf(str, width=10, height=5)
+      grid.arrange(plot1, plot2, nrow=1, ncol=2, top=sprintf("%s VS pct_1ret_ab_2m and tot_biom", gr.name))
     dev.off()
+    
+    next
+    
   } else if (gr.name == 'Bands') {
     pred.names <- unlist(params2$pred.names.sh$bands)
     cex.val <- 1
     cex.labels.val <- 1
     cex.cor.val <- 0.8
-  } else if (gr.name == 'TCcomps') {
-    pred.names <- unlist(params2$pred.names.sh$TC)
+  } else if (gr.name == 'TCcomps_VI') {
+    pred.names <- c(unlist(params2$pred.names.sh$TC), unlist(params2$pred.names.sh$VI))
     cex.val <- 1
     cex.labels.val <- 1
     cex.cor.val <- 0.8
@@ -164,13 +203,13 @@ for (pred.gr.names in params3a$groups.to.plot) {
     cex.val <- 1
     cex.labels.val <- 1
     cex.cor.val <- 0.8
-  } else if (gr.name == 'PrePostChange') {
+  } else if (gr.name == 'Pre_Post_Change') {
     pred.names <- c("PreCh_pers", "PreCh_mag", "PreCh_er", "PostCh_pers", "PostCh_mag", "PostCh_er")
     cex.val <- 1
     cex.labels.val <- 1
     cex.cor.val <- 0.8
-  } else if (gr.name == 'GreatestLastFirstChange') {
-    pred.names <- c("GreatCh_yr", "FirstCh_yr", "LastCh_yr", "FirstCh_pers", "LastCh_pers")
+  } else if (gr.name == 'Years') {
+    pred.names <- c("FirstCh_yr", "LastCh_yr", "GreatCh_yr", "FirstCh_pers", "LastCh_pers")
     cex.val <- 1
     cex.labels.val <- 1
     cex.cor.val <- 0.8
@@ -181,52 +220,65 @@ for (pred.gr.names in params3a$groups.to.plot) {
     cex.cor.val <- 0.8
   }
   
+  ## Canadian level (merged UTM zones) bivariate scatterplots with linear model R on it
   X.data.to.plot <- X.trn.val[plot.idx, pred.names]
   data.to.plot <- cbind(X.data.to.plot, Y.data.to.plot)
-  str <- file.path(base_figures_dir, sprintf("CAN_pairsPanel_keyTarg_VS_%s.pdf", gr.name), sep='')
+  if (gr.name == 'Years') {
+    data.to.plot$FirstCh_yr[data.to.plot$FirstCh_yr == 0] <- params3a$min.year.of
+    data.to.plot$LastCh_yr[data.to.plot$LastCh_yr == 0] <- params3a$min.year.of
+    data.to.plot$GreatCh_yr[data.to.plot$GreatCh_yr == 0] <- params3a$min.year.of
+  }
+  str <- file.path(CAN.subdir, sprintf("CAN_pairsPanel_keyTarg_VS_%s.pdf", gr.name), sep='')
   pdf(str)
     pairs.panels(data.to.plot, pch=1, cex=cex.val, 
-                 scale=T, density=F, ellipses=F, lm=T, jiggle=F, rug=F,
+                 scale=F, density=F, ellipses=F, lm=T, jiggle=F, rug=F,
                  breaks=15, cex.labels=cex.labels.val, cex.cor=cex.cor.val,
                  main=sprintf("%s VS pct_1ret_ab_2m and tot_biom", gr.name))
   dev.off()
   
-  gr.idx <- gr.idx+1
 }
 
 
 ## Variable histograms by UTM zone
 
-## predictors
-X.data.to.plot <- X.trn.val[plot.idx, ]
-for (pred in params2$var.names.short) {
-  str <- file.path(base_figures_dir, sprintf("UTMzonesHist_%s.pdf", pred), sep='')
+## continuous var
+cont.var.idx <- !(colnames(X.trn.val) %in% "Ch_attr")
+data.to.plot <- cbind(X.trn.val[plot.idx, cont.var.idx], Y.data.to.plot)
+data.to.plot$FirstCh_yr[data.to.plot$FirstCh_yr == 0] <- params3a$min.year.of
+data.to.plot$LastCh_yr[data.to.plot$LastCh_yr == 0] <- params3a$min.year.of
+data.to.plot$GreatCh_yr[data.to.plot$GreatCh_yr == 0] <- params3a$min.year.of
+for (v in 6:ncol(data.to.plot)) {
+  var <- colnames(data.to.plot)[v]
+  nr.of.bins <- 12
+  my.hist.lims <- c(min(data.to.plot[, v]), quantile(data.to.plot[, v], 0.99, names=F))
+  my.breaks <- c(seq(min(data.to.plot[, v]), quantile(data.to.plot[, v], 0.99, names=F), l=nr.of.bins+1), max(data.to.plot[, v])+1)
+  str <- file.path(UTMzone.subdir, sprintf("UTMzonesHist_%s.pdf", var), sep='')
   pdf(str)
-  par(mfrow=c(5,4))
+  par(mfrow=c(4,5), oma = c(5,4,2,2) + 0.1, mar = c(2,2,2,2) + 0.1)
   for (z in 1:length(paramsGL$zones)) {
     zone <- paramsGL$zones[z]
     zone.nr <- substr(zone, 4, nchar(zone))
-    zone.idx <- which(X.trn.val$UTMzone == zone.nr)
-    hist(X.trn.val[zone.idx, pred], main=sprintf("%s", zone))  # , breaks=20
+    zone.idx <- which(data.to.plot$UTMzone == zone.nr)
+    hist(data.to.plot[zone.idx, v], main=sprintf("%s", zone), freq=T, breaks=my.breaks, xlim=my.hist.lims, xlab=NULL, ylab=NULL, col='lightgreen')  # , breaks=20
   }
+  title(var, outer=T)
   dev.off()
 }
     
-## targets
-Y.data.to.plot <- Y.trn.val[plot.idx, ]
-for (targ in params3a$targets) {
-  str <- file.path(base_figures_dir, sprintf("UTMzonesHist_%s.pdf", targ), sep='')
-  pdf(str)
-  par(mfrow=c(5,4))
-  for (z in 1:length(paramsGL$zones)) {
-    zone <- paramsGL$zones[z]
-    zone.nr <- substr(zone, 4, nchar(zone))
-    zone.idx <- which(X.trn.val$UTMzone == zone.nr)
-    hist(Y.data.to.plot[zone.idx, targ], main=sprintf("%s", zone))  # , breaks=20
-  }
-  dev.off()
+## categorical vars
+data.to.plot <- cbind(X.trn.val[plot.idx, 1:5], X.trn.val[plot.idx, "Ch_attr"])
+var <- "Ch_attr"
+str <- file.path(UTMzone.subdir, sprintf("UTMzonesHist_%s.pdf", var), sep='')
+pdf(str)
+par(mfrow=c(4,5), oma = c(5,4,2,2) + 0.1, mar = c(0,0,2,2) + 0.1)
+for (z in 1:length(paramsGL$zones)) {
+  zone <- paramsGL$zones[z]
+  zone.nr <- substr(zone, 4, nchar(zone))
+  zone.idx <- which(data.to.plot$UTMzone == zone.nr)
+  barplot(table(data.to.plot[, 6]), col='lightgreen')
 }
-
+title("Ch_attr", outer=T)
+dev.off()
 
 
 ##------------------------
@@ -332,7 +384,23 @@ save(yai.rf.500, yai.rf.250, X.trn, Y.trn.sub, Y.trn.attach, file = "yai_rf_gnn_
 ## MODEL ASSESSMENT
 ##------------------------
 
-
+####      
+#         ## Validation in parallel
+#         sizeBlocks <- ceiling( nrow(X.val) / min(detectCores(), nrow(X.val)) )  ## to avoid problems when number of rows of the matrix is smaller than the nr of cores 
+#         nblocks <- ceiling(nrow(X.val)/sizeBlocks)  ## to avoid problems when sizeBlocks is small (nblocks will allow to cover just a little more, or exactly, the size of data)
+#         nr.clusters <- nblocks
+#         cl <- makeCluster(nr.clusters)
+#         registerDoParallel(cl)
+#         Y.val.pred <- foreach (blck = 1:nblocks, .combine='rbind', .packages='randomForest') %do% {
+#           # for (blck in 1:nblocks) {
+#           indPart <- seq(from=(blck-1)*sizeBlocks+1, to=min(blck*sizeBlocks, nrow(X.val)), by=1)
+#           Y.val.pred.block <- predict(rf, X.val[indPart,list.X.vars], type="response", predict.all=F, nodes=F)
+#           as.data.frame(Y.val.pred.block)
+#         }
+#         stopCluster(cl)
+#         cmd=sprintf('assess.rf.%s.val.ntree%s.mtry%s.nodesize%s <- regr_metrics(as.matrix(Y.val.pred), Y.val$%s)[list.metrics]', targ, nrtrees, mtries, nodesizes, targ)
+#         eval(parse(text=cmd))
+####        
 
 
 

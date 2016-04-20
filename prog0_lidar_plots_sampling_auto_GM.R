@@ -2,12 +2,12 @@
 ## TO DO
 ##----------------------
 
-## STILL TO DO
-# - check usage of new shp in LOP_attributes as they have more columns/points
+#### STILL TO DO ####
+# - check usage of new shp in LOP_attributes as they have more columns/points and new Ecozone column
 # - check projections
 # - remove setwd() from all scripts
 
-## SOLVED
+#### SOLVED ####
 # -V check IDs who relates to who -- now they all relate to "lidar.2.fc.dist.undist"
 # -V check shapefiles produced -- FCIDs all match and relate to "lidar.2.fc.dist.undist"
 # -V duplicate plot IDs (eg, in "9S_points.shp": T20_095D01_333871 and T24_095D01_333871) -- now filtered in the new version of files Geordie sent ("LOP_attr.zip" folder)
@@ -50,9 +50,9 @@ load(param_file)
 ##----------------------------
 params0 <- list()
 params0$dist.center.trans <- 300   ## threshold on distance from center of transect to eliminate plots whose acquisition was too skewed
-# params0$dist.center.trans <- 100   
+# params0$dist.center.trans <- 100   ## smaller test threshold to speed up tests
 params0$hexag.cell.size <- 250   ## spacing of the hexagonal sampling cells
-# params0$hexag.cell.size <- 3500
+# params0$hexag.cell.size <- 3500  ## larger test spacing to speed up tests
 
 param_file_prog0 = file.path(base_wkg_dir, 'AllUTMzones_params0.Rdata', fsep = .Platform$file.sep) 
 save(params0, file = param_file_prog0)
@@ -90,7 +90,6 @@ tic <- proc.time() # start clocking global time
 
 cl <- makeCluster(nr.clusters)
 registerDoParallel(cl)
-getDoParWorkers()
 nr.samples.per.zone <- foreach (z = 1:length(paramsGL$zones), .combine='rbind', .packages=list.of.packages) %dopar% {   #add .verbose=TRUE for more info when debugging
 # for (z in 1:length(paramsGL$zones)) {
     

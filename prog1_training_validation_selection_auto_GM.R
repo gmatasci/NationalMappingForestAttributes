@@ -11,16 +11,18 @@
 ## TO DO
 ##----------------------
 
-## STILL TO DO
-# - where shall I overwrite the new shapefiles from "ForGiona.zip" (use these as there was an issue wrt nr. LiDAR plots >= nr. plots with LiDAR attr. >= nr. plots with forest attr.)?
+#### STILL TO DO ####
+# - lidar.metrics.attributes.sample <- merge(lidar.metrics.attributes, lidar.sample.df, by.x = "unique_id", by.y = "Unique_ID"): is empty bc unique_id and Unique_ID do not match
+# -!!! elev_cv is ok for in-plot filtering or we need CV on 3x3 polyg ? -- no it is better to use 3x3 CV, as in Harold's version of the scripts STILL TO CHANGE
 # - TRN/VAL center of polygon shapefiles match with those produced by prog0, the shapefile with all the points written at end  
 #   (pts9.poly.training.validation.temp.5 as _pts9_poly_250m_training_validation) does not match!!! TO CHECK AGAIN
 # - ############# = TODEL
 # - check sizes of shp vs csv
-# -DOUG elev_cv is ok for in-plot filtering or we need CV on 3x3 polyg ?
 
-## SOLVED
+#### SOLVED ####
 # -V UTM11S_plot_cloud_metrics_first_returns_gt2m.csv is only 7000 KB in size and Unique_IDs do not match -- with new data from Geordie now it is OK, 7000 Kb bc is a very small transect
+# -V where shall I overwrite the new shapefiles from "ForGiona.zip" (use these as there was an issue wrt nr. LiDAR plots >= nr. plots with LiDAR attr. >= nr. plots with forest attr.)? -- In LOP_attributed is OK bc now they have for_sum field
+
 
 ##----------------------
 ## READS  
@@ -54,11 +56,16 @@ rm(list=ls()) # clear all variables
 param_file = "D:/Research/ANALYSES/NationalImputationForestAttributes/BAP_Imputation_working/wkg/AllUTMzones_paramsGL.Rdata"
 load(param_file)
 
+#-----------------
+#!!!!!!!!!!!!!!!!!!  NO 11S which gives errors
+paramsGL$zones <- c('UTM8N', 'UTM9N', 'UTM9S', 'UTM10N', 'UTM10S', 'UTM11N', 'UTM12N', 'UTM12S', 'UTM13S','UTM14S','UTM15S', 'UTM16S' ,'UTM17S', 'UTM18S' ,'UTM19S' ,'UTM20S' ,'UTM21S')
+#-----------------
+#!!!!!!!!!!!!!!!!!!
+
 # ############### TO DEL
 # base_wkg_dir <- 'D:/Research/ANALYSES/NationalImputationForestAttributes/BAP_Imputation_working/wkg_PROG0_FOREACH'
 # paramsGL$zones <- c('UTM12S', 'UTM13S', 'UTM14S')
 # ############### TO DEL
-
 
 ##----------------------------
 ## SCRIPT SPECIFIC PARAMETERS
@@ -101,9 +108,9 @@ tic <- proc.time() # start clocking global time
 
 cl <- makeCluster(nr.clusters)
 registerDoParallel(cl)
-getDoParWorkers()
 ## assigns to full.df the row-wise binding of the last unassigned object (dataframe) of the loop (in this case the one formed with "merge(pts9.mean.me....")
 full.df <- foreach (z = 1:length(paramsGL$zones), .combine='rbind', .packages=list.of.packages) %dopar% {   #add .verbose=TRUE for more info when debugging
+## !!!! uncomment write.csv(full.df)  at the end !!!!
 # for (z in 1:length(paramsGL$zones)) {
 
   # temp.tic <- proc.time() # start clocking time for each UTM zone
