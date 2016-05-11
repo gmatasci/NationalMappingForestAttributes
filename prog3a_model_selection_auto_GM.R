@@ -9,6 +9,8 @@
 ##----------------------
 
 #### STILL TO DO ####
+# - consider setting mtry=sqrt(nr var)
+# - 10 run and report mean+-std?
 # - subsample only for pair.plot and not for hist or rest
 # - implement model selection based on Impute_Vs_predict.R
 # - build model with proprer data
@@ -28,6 +30,10 @@
 # -V ANOVA style qplot for categorical vars -- boxplot of key targets by category for CAN and barplot by UTM zone
 # -V ggpair each type vs the targets: fix loop for dynamic plots (consider copying the same 4 times) -- done with pairs.panels()
 # -V check plots section with new structure
+# -V test density=T for pair.panels -- no, this just adds a density curve to the histogram in the diagonal
+# -V global correlation matrix without subsampling to see redundant variables -- added with filters for high and low correlations
+
+
 
 
 ##----------------------
@@ -44,6 +50,8 @@
 #-----------------------------------------------------------------
 #-------------------------     START     -------------------------
 #-----------------------------------------------------------------
+
+print('Prog3a: descriptive plotting and model selection') 
 
 rm(list=ls()) # clear all variables
 
@@ -76,19 +84,11 @@ params3a$targ.attach.names.lg <- list("elev_mean","elev_stddev","elev_p95","elev
 
 params3a$min.year.of <- 1984
 
-#-----------------
-#!!!!!!!!!!!!!!!!!!  NO 11S which gives errors
-paramsGL$zones <- c('UTM8N', 'UTM9N', 'UTM9S', 'UTM10N', 'UTM10S', 'UTM11N', 'UTM12N', 'UTM12S', 'UTM13S','UTM14S','UTM15S', 'UTM16S' ,'UTM17S', 'UTM18S' ,'UTM19S' ,'UTM20S' ,'UTM21S')
 params3a$subs.factor <- 60
-# paramsGL$zones <- c('UTM13S')
-# params3a$subs.factor <- 4
-#-----------------
-#!!!!!!!!!!!!!!!!!!
- 
-params3a$Ch_attr.classes <- c("No change", "Fire", "Harvesting", "Non-stand replacing", "Road", "Unclassified (Fire)", "Unclassified (Harvesting)", 
-                                 "Unclassified (Non-stand replacing)", "Unclassified (Road)", "Unclassified (Well-site)")
 
-params3a$groups.to.plot <- list('Bands', 'TCcomps_VI', 'Change', 'Pre_Post_Change', 'Years', 'ChangeAttribution', 'Trends')
+params3a$Ch_attr.classes <- c("No change", "Fire", "Harvesting", "Non-stand replacing", "Road", "Unclassified")
+
+params3a$groups.to.plot <- list('Bands', 'TCcomps_VI', 'ChangeAttribution', 'Years_Topo_Trends')
 
 param_file_prog3a = file.path(base_wkg_dir, 'AllUTMzones_params3a.Rdata', fsep = .Platform$file.sep) 
 save(params3a, file = param_file_prog3a)
@@ -110,36 +110,28 @@ list.of.packages <- c("ggplot2",
                       "doParallel", 
                       "foreach"
 )
-new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]   # named vector members whose name is "Package"
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]   ## named vector members whose name is "Package"
 if(length(new.packages)) install.packages(new.packages)
 for (pack in list.of.packages){
   library(pack, character.only=TRUE)
 }
 
-tic <- proc.time() # start clocking global time
+tic <- proc.time() ## start clocking global time
 
-
-print('Prog3, modeling') 
-
-##load plot training and validation data for lidar metrics and derived structural attributes (old "str", for structural)
-##subset to only training data
+## load plot training and validation data for lidar metrics and derived structural attributes (old "str", for structural)
 Y.trn.val <- read.csv(file.path(base_wkg_dir, "lidar_metrics_mean_training_validation.csv", fsep = .Platform$file.sep))
-# Y.trn.val$POLY250ID <- NULL
 
-##load explanatory variables extracted for training plots (old "env" for environment)
+## load explanatory variables extracted for training plots (old "env" for environment)
 X.trn.val <- read.csv(file.path(base_wkg_dir, "poly_training_validation_exvars_extract.csv", fsep = .Platform$file.sep))
-
-##change POLY250ID to FCID in Y data
-names(Y.trn.val)[names(Y.trn.val)=="POLY250ID"] <- "FCID"
 
 ## check for order of sample points in the two datasets X and Y
 if ( !identical(X.trn.val$FCID, Y.trn.val$FCID) ) {
   stop("Prog3a: order of FCIDs is different in lidar_metrics_mean_training_validation.csv wrt poly_training_validation_exvars_extract.csv")
 }
 
-##------------------------
-## DESCRIPTIVE PLOTS
-##------------------------
+##---------------------------
+## DESCRIPTIVE STATS & PLOTS
+##---------------------------
 
 CAN.subdir <- file.path(base_figures_dir, "Relations_CAN_level", fsep = .Platform$file.sep)
 UTMzone.subdir <- file.path(base_figures_dir, "Histograms_UTMzone_level", fsep = .Platform$file.sep)
@@ -147,12 +139,28 @@ UTMzone.subdir <- file.path(base_figures_dir, "Histograms_UTMzone_level", fsep =
 if (! file.exists(CAN.subdir)){dir.create(CAN.subdir, showWarnings = F, recursive = T)}
 if (! file.exists(UTMzone.subdir)){dir.create(UTMzone.subdir, showWarnings = F, recursive = T)}
 
+## global correlation matrix to see redundant variables
+XXXX
+XXXX Split to highlight high corr among predictors and low corr with response
+XXXX
+
+params3a$corr.high <- 0.95
+params3a$corr.low <- 0.2
+Y.trn.val.corr <- Y.trn.val[, unlist(params3a$targ.names.lg)]
+colnames(Y.trn.val.corr) <- params3a$targ.names.sh
+cont.idx <- !unlist(params2$pred.names.sh) %in% c(params2$pred.names.sh$yrs, params2$pred.names.sh$cngattr) ## subset to continuous variables
+data.matrix <- cbind(X.trn.val[, unlist(params2$pred.names.sh)[cont.idx]], Y.trn.val.corr)
+corr.matrix <- cor(data.matrix)
+corr.matrix.high.low <- corr.matrix
+corr.matrix.high.low[abs(corr.matrix) < params3a$corr.high & abs(corr.matrix) > params3a$corr.low] <- NA
+
+
 
 ## create indices for subsampling 
 set.seed(2010)
 
 plot.idx.init <- sample(1:nrow(X.trn.val), round(nrow(X.trn.val)/params3a$subs.factor))
-UTM.idx <- which(paste('UTM', X.trn.val$UTMzone, sep='') %in% paramsGL$zones)
+UTM.idx <- which(paste('UTM', X.trn.val$UTMzone, sep='') %in% paramsGL$zones)  ## to only select samples of the UTM zones specified in paramsGL$zones
 plot.idx <- plot.idx.init[plot.idx.init %in% UTM.idx]
 
 Y.data.to.plot <- Y.trn.val[plot.idx, unlist(params3a$targ.key.names.lg)] ## select Y columns to plot
@@ -198,23 +206,8 @@ for (pred.gr.names in params3a$groups.to.plot) {
     cex.val <- 1
     cex.labels.val <- 1
     cex.cor.val <- 0.8
-  } else if (gr.name == 'Change') {
-    pred.names <- c("Ch_pers", "Ch_mag", "Ch_er")
-    cex.val <- 1
-    cex.labels.val <- 1
-    cex.cor.val <- 0.8
-  } else if (gr.name == 'Pre_Post_Change') {
-    pred.names <- c("PreCh_pers", "PreCh_mag", "PreCh_er", "PostCh_pers", "PostCh_mag", "PostCh_er")
-    cex.val <- 1
-    cex.labels.val <- 1
-    cex.cor.val <- 0.8
-  } else if (gr.name == 'Years') {
-    pred.names <- c("FirstCh_yr", "LastCh_yr", "GreatCh_yr", "FirstCh_pers", "LastCh_pers")
-    cex.val <- 1
-    cex.labels.val <- 1
-    cex.cor.val <- 0.8
-  } else if (gr.name == 'Trends') {
-    pred.names <- unlist(params2$pred.names.sh$trends)
+  } else if (gr.name == 'Years_Topo_Trends') {
+    pred.names <- c(unlist(params2$pred.names.sh$yrs), unlist(params2$pred.names.sh$topo), unlist(params2$pred.names.sh$trends))
     cex.val <- 1
     cex.labels.val <- 1
     cex.cor.val <- 0.8
@@ -223,9 +216,7 @@ for (pred.gr.names in params3a$groups.to.plot) {
   ## Canadian level (merged UTM zones) bivariate scatterplots with linear model R on it
   X.data.to.plot <- X.trn.val[plot.idx, pred.names]
   data.to.plot <- cbind(X.data.to.plot, Y.data.to.plot)
-  if (gr.name == 'Years') {
-    data.to.plot$FirstCh_yr[data.to.plot$FirstCh_yr == 0] <- params3a$min.year.of
-    data.to.plot$LastCh_yr[data.to.plot$LastCh_yr == 0] <- params3a$min.year.of
+  if (gr.name == 'Years_Topo_Trends') {
     data.to.plot$GreatCh_yr[data.to.plot$GreatCh_yr == 0] <- params3a$min.year.of
   }
   str <- file.path(CAN.subdir, sprintf("CAN_pairsPanel_keyTarg_VS_%s.pdf", gr.name), sep='')
@@ -244,9 +235,14 @@ for (pred.gr.names in params3a$groups.to.plot) {
 ## continuous var
 cont.var.idx <- !(colnames(X.trn.val) %in% "Ch_attr")
 data.to.plot <- cbind(X.trn.val[plot.idx, cont.var.idx], Y.data.to.plot)
-data.to.plot$FirstCh_yr[data.to.plot$FirstCh_yr == 0] <- params3a$min.year.of
-data.to.plot$LastCh_yr[data.to.plot$LastCh_yr == 0] <- params3a$min.year.of
 data.to.plot$GreatCh_yr[data.to.plot$GreatCh_yr == 0] <- params3a$min.year.of
+
+# XXXXXXXXXXXXX
+# XXXXXXXXXXXXX
+# - below change 6 bc columns have changed
+# XXXXXXXXXXXXX
+# XXXXXXXXXXXXX
+
 for (v in 6:ncol(data.to.plot)) {
   var <- colnames(data.to.plot)[v]
   nr.of.bins <- 12
@@ -279,6 +275,17 @@ for (z in 1:length(paramsGL$zones)) {
 }
 title("Ch_attr", outer=T)
 dev.off()
+
+
+
+
+
+
+
+
+
+
+
 
 
 ##------------------------

@@ -13,6 +13,7 @@
 ##----------------------
 
 ## STILL TO DO
+# - be sure to restrict prtediction area to a forest mask to avoid imputing forest properties to open surfaces (NN-imputation but also RF predict a mean of existing values/samples found in the TRN set!)
 # - in masking step change name of mask to use again the complete masks and not TRIAL ones
 # - check correspondence between variable names in raster (prediction grid) and Xrefs (training set) in model file
 # - fix units of variables: [kg/ha], etc.

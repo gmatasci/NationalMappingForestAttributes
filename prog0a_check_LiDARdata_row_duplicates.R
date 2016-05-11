@@ -16,8 +16,9 @@
 #-------------------------     START     -------------------------
 #-----------------------------------------------------------------
 
-rm(list=ls()) # clear all variables
+print('Prog0a: checking for duplicates')
 
+rm(list=ls()) # clear all variables
  
 ##------------------------
 ## LOAD GLOBAL PARAMETERS
@@ -43,7 +44,6 @@ list.of.packages <- c("rgdal",
                       "lubridate", 
                       "doParallel", 
                       "foreach"
-                      # "profvis",
 )
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]   # named vector members whose name is "Package"
 if(length(new.packages)) install.packages(new.packages)
@@ -57,8 +57,10 @@ cl <- makeCluster(nr.clusters)
 registerDoParallel(cl)
 ## assigns to full.df the row-wise binding of the last unassigned object (dataframe) of the loop (in this case the one formed with "merge(pts9.mean.me....")
 full.df <- foreach (z = 1:length(paramsGL$zones), .combine='rbind', .packages=list.of.packages) %dopar% {   #add .verbose=TRUE for more info when debugging
-# for (z in 1:length(paramsGL$zones)) {
-
+  ##---- WHEN NOT USING FOREACH, TESTING PHASE ----
+  # for (z in 1:length(paramsGL$zones)) {
+  ##---- WHEN NOT USING FOREACH, TESTING PHASE ----
+  
   zone = paramsGL$zones[z]
   print(paste('Prog0a, Check for duplicates on' ,zone))   # converts its arguments (via as.character) to character strings, and concatenates them (separating them by the string given by sep or by a space by default)
   wkg_dir = file.path(base_wkg_dir, zone, fsep = .Platform$file.sep)
@@ -102,10 +104,15 @@ full.df <- foreach (z = 1:length(paramsGL$zones), .combine='rbind', .packages=li
   unique.IDs.df <- as.data.frame(lidar@data$Unique_ID)
   duplic.points.ID <- as.data.frame(unique.IDs.df[duplicIndic, ])
   
+  ## check ratio of plots with related LiDAR or forest attributes info
+  pct.plots.w.lidar.metrics <- 1 - length( setdiff(as.vector(unlist(unique.IDs.df)),  as.vector(lidar.metrics.1streturns$unique_id)) ) / length(  as.vector(unlist(unique.IDs.df)) )
+  pct.plots.w.forest.attr <- 1 - length( setdiff(as.vector(unlist(unique.IDs.df)),  as.vector(lidar.metrics.forest.attributes$unique_id)) ) / length(  as.vector(unlist(unique.IDs.df)) )
+  pct.lidar.metrics.w.forest.attr <-  1 - length( setdiff(as.vector(lidar.metrics.1streturns$unique_id), as.vector(lidar.metrics.forest.attributes$unique_id)) ) / length( as.vector(lidar.metrics.1streturns$unique_id) )
+  
   c(counter.1streturns, nrow(lidar.metrics.1streturns), length(unique(lidar.metrics.1streturns$unique_id)), 
     counter.forest.attributes, nrow(lidar.metrics.forest.attributes), length(unique(lidar.metrics.forest.attributes$unique_id)), 
     counter.ID.point.shp, nrow(lidar@data), length(unique(lidar@data$Unique_ID)), 
-    counter.point.shp, nrow(duplic.points.ID))
+    counter.point.shp, nrow(duplic.points.ID), pct.plots.w.lidar.metrics, pct.plots.w.forest.attr, pct.lidar.metrics.w.forest.attr)
 
 }
 
@@ -116,7 +123,7 @@ rownames(full.df) <- paramsGL$zones
 colnames(full.df) <- c("flag_1stReturns_IDs", "1stReturns_nrRows", "1stReturns_nrUniqueIDs", 
                        "flag_forestAttr_IDs", "forestAttr_nrRows", "forestAttr_nrUniqueIDs", 
                        "flag_pointsShp_IDs", "pointsShp_nrRows", "pointsShp_nrUniqueIDs", 
-                       "flag_pointsShp_Coords", "pointsShp_nrDuplicateCoords")
+                       "flag_pointsShp_Coords", "pointsShp_nrDuplicateCoords", "pct_plots_with_lidar_metrics", "pct_plots_with_forest_attr", "pct_lidar_metrics_with_forest_attr")
 
 write.csv(full.df, file = file.path(base_wkg_dir, "check_unique_IDs_coords.csv", sep = ''))
 
