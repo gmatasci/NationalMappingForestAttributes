@@ -1,36 +1,34 @@
-#####################################################################
-## Check for row duplicates in all LiDAR csv files for all UTM zones
-#####################################################################
-##----------------------
-## TO DO
-##----------------------
+#### CODE INFOS ---------------------------------------------------------------
 
-#### STILL TO DO ####
-# - test foreach without doParallel things before
-# - run before prog0 to check all files loaded
-# - run similar script after prog1 with all produced files
+## Project Name: NationalImputationForestAttributes
+## Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hoabart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
+## File Name:                              
+## Objective: Check for row duplicates in all LiDAR csv files for all UTM zones
 
-#### SOLVED ####
+#### TO DO -------------------------------------------------------------------
 
-#-----------------------------------------------------------------
-#-------------------------     START     -------------------------
-#-----------------------------------------------------------------
+## STILL TO DO:
+# Prior to actual run:
+# - use foreach
+# - check parameters
+
+## SOLVED:
+# -V test foreach without doParallel things before -- it works
+# -V run before prog0 to check all files loaded -- done, shapefiles and csvs are now ok
+
+#### INIT --------------------------------------------------------------------
 
 print('Prog0a: checking for duplicates')
 
 rm(list=ls()) # clear all variables
- 
-##------------------------
-## LOAD GLOBAL PARAMETERS
-##------------------------
+
 param_file = "D:/Research/ANALYSES/NationalImputationForestAttributes/BAP_Imputation_working/wkg/AllUTMzones_paramsGL.Rdata"
 load(param_file)
 
 nr.clusters = length(paramsGL$zones)  ## for parallel just uncomment the foreach line, the preceding lines and the stopCluster(cl) line at the end
 
-##----------------------------
-## LOAD PACKAGES
-##----------------------------
+#### LOAD PACKAGES ----------------------------------------------------------
+
 list.of.packages <- c("rgdal",
                       "raster",
                       "sp",
@@ -51,21 +49,25 @@ for (pack in list.of.packages){
   library(pack, character.only=TRUE)
 }
 
+#### START ------------------------------------------------------------------
+
 tic <- proc.time() # start clocking global time
 
 cl <- makeCluster(nr.clusters)
 registerDoParallel(cl)
 ## assigns to full.df the row-wise binding of the last unassigned object (dataframe) of the loop (in this case the one formed with "merge(pts9.mean.me....")
 full.df <- foreach (z = 1:length(paramsGL$zones), .combine='rbind', .packages=list.of.packages) %dopar% {   #add .verbose=TRUE for more info when debugging
-  ##---- WHEN NOT USING FOREACH, TESTING PHASE ----
+  ## WHEN NOT USING FOREACH, TESTING PHASE
   # for (z in 1:length(paramsGL$zones)) {
-  ##---- WHEN NOT USING FOREACH, TESTING PHASE ----
+  ## WHEN NOT USING FOREACH, TESTING PHASE
   
   zone = paramsGL$zones[z]
   print(paste('Prog0a, Check for duplicates on' ,zone))   # converts its arguments (via as.character) to character strings, and concatenates them (separating them by the string given by sep or by a space by default)
   wkg_dir = file.path(base_wkg_dir, zone, fsep = .Platform$file.sep)
 
-  ## load lidar veg metrics database
+#### READ FILES ---------------------------------------------------------------
+  
+  ## read lidar veg metrics database
   infile = file.path(LOP_dir,'LOP_attr','plot_cloud_metrics_first_returns_gt2m',paste(zone,"_plot_cloud_metrics_first_returns_gt2m.csv",sep = ''),fsep = .Platform$file.sep)
   lidar.metrics.1streturns <- read.csv(infile,head=TRUE,sep=",") ## metrics from first returns above 2m
   ## check if nr of rows is equal to nr of unique IDs
@@ -74,8 +76,8 @@ full.df <- foreach (z = 1:length(paramsGL$zones), .combine='rbind', .packages=li
   } else {
     counter.1streturns <- 0
   }
-
-  ## load lidar biomass and inventory attributes database
+  
+  ## read lidar biomass and inventory attributes database
   infile = file.path(LOP_dir,'LOP_attr','plot_inventory_attributes2',paste(zone,"_plot_inventory_attributes2.csv",sep = ''),fsep = .Platform$file.sep)
   lidar.metrics.forest.attributes <- read.csv(infile,head=TRUE,sep=",") ## metrics from first returns above 2m
   ## check if nr of rows is equal to nr of unique IDs
@@ -85,15 +87,19 @@ full.df <- foreach (z = 1:length(paramsGL$zones), .combine='rbind', .packages=li
     counter.forest.attributes <- 0
   }
   
-  ## load lidar plot points shapefiles
+  ## read lidar plot points shapefiles
   pnt_dir = file.path(LOP_dir,'LOP_attributed', fsep = .Platform$file.sep) 
   lidar <-  readOGR(dsn = pnt_dir, layer = paste(zone,"_points", sep=''))
+
+#### RUN CHECKS -------------------------------------------------------------
+  
   ## check if nr of rows is equal to nr of unique IDs
   if ( nrow(lidar@data) == length(unique(lidar@data$Unique_ID)) ) {
     counter.ID.point.shp <- 1
   } else {
     counter.ID.point.shp <- 0
   }
+  
   ## check if there are points with same coordinates
   duplicIndic <- duplicated(lidar@coords, incomparables = FALSE)
   if ( is.na(table(duplicIndic)["TRUE"]) ) {
@@ -118,6 +124,8 @@ full.df <- foreach (z = 1:length(paramsGL$zones), .combine='rbind', .packages=li
 
 stopCluster(cl)
 
+#### WRITE FILES ---------------------------------------------------------
+
 full.df = as.data.frame(full.df)
 rownames(full.df) <- paramsGL$zones
 colnames(full.df) <- c("flag_1stReturns_IDs", "1stReturns_nrRows", "1stReturns_nrUniqueIDs", 
@@ -126,6 +134,8 @@ colnames(full.df) <- c("flag_1stReturns_IDs", "1stReturns_nrRows", "1stReturns_n
                        "flag_pointsShp_Coords", "pointsShp_nrDuplicateCoords", "pct_plots_with_lidar_metrics", "pct_plots_with_forest_attr", "pct_lidar_metrics_with_forest_attr")
 
 write.csv(full.df, file = file.path(base_wkg_dir, "check_unique_IDs_coords.csv", sep = ''))
+
+#### PRINT LOGS ---------------------------------------------------------
 
 if ( sum(full.df[, "flag_1stReturns_IDs"]) == nrow(full.df) && sum(full.df[, "flag_forestAttr_IDs"]) == nrow(full.df) && sum(full.df[, "flag_pointsShp_IDs"]) == nrow(full.df) && sum(full.df[, "flag_pointsShp_Coords"]) == nrow(full.df)) {
   print("All OK!")
@@ -136,28 +146,3 @@ if ( sum(full.df[, "flag_1stReturns_IDs"]) == nrow(full.df) && sum(full.df[, "fl
 # clock global time
 toc <- proc.time()-tic[3]
 print(paste("Prog0a, total elapsed time:",seconds_to_period(toc[3])))
-
-
-
-
-
-
-
-
-
-
-## just in case...
-
-#   ## load shapefile for lidar points in forest class as determined by sk_mask
-#   ## load shapfiles of sample polygons
-#   ## load shapefile of sample polygons center points
-#   ## load shapefile for sampled lidar points in forest class with homogenous disturbed or undisturbed condition and 250m minimum spacing
-#   ## this shapefile has unique_id FCID and POLY250ID dataframe columnes
-#   pnt_dir = file.path(LOP_dir,'LOP_attributed', fsep = .Platform$file.sep) 
-#   lidar.pts.fc <-  readOGR(dsn = pnt_dir, layer =paste(zone, "_points",sep='')) ## same layer loaded as "lidar" in prog0_lidar_plots_sampling_auto_GM.R   ## 1106975 lidar points with fc 
-#   
-#   lidar.sample <- readOGR(dsn = wkg_dir, layer =paste(zone, "_lidar_sample_250m", sep='')) ## 50172 lidar points within sample 5574 sample polygons
-#   lidar.sample.polygons <- readOGR(dsn = wkg_dir, layer = paste(zone,"_sample_250m_poly", sep='')) # smallest polyg subset, the one with only 9 plots/polyg ## 50172 lidar points within sample 5574 sample polygons
-#   #----------------  MOST IMPORTANT FILE: CENTERPOINTS FILE   ------------------------
-#   lidar.sample.polygons.centerpoints <- readOGR(dsn = wkg_dir, layer = paste(zone,"_sample_250m_poly_centerpt", sep='')) ## 5574 center points USE THESE INSTEAD OF lidar.hex.centerpoints, USED TO PRODUCE SHP "UTMXXX_cpt_poly_250m_training_validation"
-#   #----------------------------------------------------------------------------------

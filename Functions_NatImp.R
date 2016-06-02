@@ -1,10 +1,12 @@
-##########################################################
-# Project Name: CA_IMPUTATION
-# Author: Giona Matasci          
-# File Name: Functions_NatImp.R                             
-##########################################################
+#### CODE INFOS -------------------------------------------------------------------
 
-## function to copy/paste UTM zone data (NTEMS folder structure) from external HDD to a local directory
+## Project Name: NationalImputationForestAttributes
+## Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hoabart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
+## File Name: Functions_NatImp.R                            
+## Objective: Function repository to be sourced by the different scripts.
+
+#### copy_paste_UTMdata -----------------------------------------------------------
+## copy/paste UTM zone data (NTEMS folder structure) from external HDD to a local directory
 copy_paste_UTMdata <- function(disk.names, zone, cng.var.names.long, local.dir){
    
   tic.copy.UTMdata <- proc.time()
@@ -20,7 +22,7 @@ copy_paste_UTMdata <- function(disk.names, zone, cng.var.names.long, local.dir){
      next  
    }
   
-   #### copy raw BAP Landsat file for 2010 to compute TC
+   ## copy raw BAP Landsat file for 2010 to compute TC
    cmd <- sprintf('relative.path <- file.path("UTM_%s", "Results", "proxy_values", fsep = .Platform$file.sep)', zone.nr)  
    eval(parse(text=cmd))
    target.dir <- file.path(local.dir, relative.path, fsep = .Platform$file.sep)
@@ -31,18 +33,18 @@ copy_paste_UTMdata <- function(disk.names, zone, cng.var.names.long, local.dir){
    file.to.copy.hdr <- paste (file.to.copy, '.hdr', sep = "")
    file.to.copy.dat <- paste (file.to.copy, '.dat', sep = "")
    files.to.copy <- list(file.to.copy.hdr, file.to.copy.dat)
-   ##----- to test script rapidly ----------
+   ## TO TEST SCRIPT
    # files.to.copy <- list(file.to.copy.hdr)
-   ##---------------------------------------
+   ## TO TEST SCRIPT
    
    if ( all(file.exists(unlist(files.to.copy))) ) {
      file.copy(from=files.to.copy, to=target.dir, overwrite = TRUE, recursive = FALSE, copy.mode = TRUE)
    } else {
-     warning(paste ("Missing file:", file.to.copy, sep = " "))
+     stop(paste ("Missing file:", file.to.copy, sep = " "))
      list.missing.files <- append(list.missing.files, file.to.copy)
    }
    
-   #### copy change metrics files
+   ## copy change metrics files
    cmd <- sprintf('relative.path <- file.path("UTM_%s", "Results", "Change_metrics", fsep = .Platform$file.sep)', zone.nr)  
    eval(parse(text=cmd))
    target.dir <- file.path(local.dir, relative.path, fsep = .Platform$file.sep)
@@ -55,20 +57,20 @@ copy_paste_UTMdata <- function(disk.names, zone, cng.var.names.long, local.dir){
      file.to.copy.hdr <- paste (file.to.copy, '.hdr', sep = "")
      file.to.copy.dat <- paste (file.to.copy, '.dat', sep = "")
      files.to.copy <- list(file.to.copy.hdr, file.to.copy.dat)
-     ##----- to test script rapidly ----------
+     ## TO TEST SCRIPT
      # files.to.copy <- list(file.to.copy.hdr)
-     ##---------------------------------------
+     ## TO TEST SCRIPT
      
      if ( all(file.exists(unlist(files.to.copy))) ) {
        file.copy(from=files.to.copy, to=target.dir, overwrite = TRUE, recursive = FALSE, copy.mode = TRUE)
      } else {
-       warning(paste ("Missing file:", file.to.copy, sep = " "))
+       stop(paste ("Missing file:", file.to.copy, sep = " "))
        list.missing.files <- append(list.missing.files, file.to.copy)
      }
      
    }
    
-   #### copy change attribution file
+   ## copy change attribution file
    cmd <- sprintf('relative.path <- file.path("UTM_%s", "Results", "change_attribution", fsep = .Platform$file.sep)', zone.nr)  
    eval(parse(text=cmd))
    target.dir <- file.path(local.dir, relative.path, fsep = .Platform$file.sep)
@@ -79,14 +81,14 @@ copy_paste_UTMdata <- function(disk.names, zone, cng.var.names.long, local.dir){
    file.to.copy.hdr <- paste (file.to.copy, '.hdr', sep = "")
    file.to.copy.dat <- paste (file.to.copy, '.dat', sep = "")
    files.to.copy <- list(file.to.copy.hdr, file.to.copy.dat)
-   ##----- to test script rapidly ----------
+   ## TO TEST SCRIPT
    # files.to.copy <- list(file.to.copy.hdr)
-   ##---------------------------------------
+   ## TO TEST SCRIPT
    
    if ( all(file.exists(unlist(files.to.copy))) ) {
      file.copy(from=files.to.copy, to=target.dir, overwrite = TRUE, recursive = FALSE, copy.mode = TRUE)
    } else {
-     warning(paste ("Missing file:", file.to.copy, sep = " "))
+     stop(paste ("Missing file:", file.to.copy, sep = " "))
      list.missing.files <- append(list.missing.files, file.to.copy)
    }
   
@@ -97,8 +99,9 @@ copy_paste_UTMdata <- function(disk.names, zone, cng.var.names.long, local.dir){
   return( list(list.missing.files=list.missing.files, toc=toc) )
    
 }
- 
-## function to convert Landsat band values to Tasseled Cap components values
+
+#### bands_2_TC -----------------------------------------------------------
+## convert Landsat band values to Tasseled Cap components values
 bands_2_TC <- function(bands, sens='ETM+'){
    
    if(sens=='ETM+') {
@@ -129,7 +132,8 @@ bands_2_TC <- function(bands, sens='ETM+'){
    
 }
 
-## function to compute the hours of day light in a certain day of the year as a function of latitude
+#### lat_2_daylight -----------------------------------------------------------
+## compute the hours of day light in a certain day of the year as a function of latitude
 lat_2_daylight <- function(lat, j){
 
   ## 3 examples
@@ -159,7 +163,8 @@ lat_2_daylight <- function(lat, j){
   return (D)
 }
 
-## function to investigate the behavior of Random Forest (regression) parameters
+#### perf_oob_Random_Forest -----------------------------------------------------------
+## investigate the behavior of Random Forest (regression) parameters
 perf_oob_Random_Forest <- function(X, Y, params, seed){
   if (hasArg(seed)) {   # check if argument has been specified
     set.seed(seed)
@@ -185,12 +190,14 @@ perf_oob_Random_Forest <- function(X, Y, params, seed){
   return(list(rmsd=rmsd, rsq=rsq))
 }
 
-## function to assess the performance of a regression model
+#### regr_metrics -----------------------------------------------------------
+## assess the performance of a regression model
 regr_metrics <- function(x,y) { 
     maxrange<-max(max(x),max(y))
     minrange<-min(min(x),min(y))
     rng<-maxrange-minrange
     n<-length(x)
+    bias<-sum(x-y)/n        				# Bias
     ssd<-sum((x-y)^2)        				# Sum of square difference;
     msd<-ssd/n 									# Mean square difference;
     xmean<-sum(x)/n 
@@ -231,12 +238,18 @@ regr_metrics <- function(x,y) {
     prop_sys<-mpd_sys/msd		# calculating proportion of error that's due to systematic differences (Y could be modeled from X)
     return(
       list(
-        lmfit = lmfit_map, 
-        ac = list(ac = ac, uns = ac_uns,sys = ac_sys), 
-        prop = list(sys = prop_sys, uns = prop_uns),
+        lmfit = lmfit_map,
+        bias = bias,
+        ac = ac, 
+        ac_uns = ac_uns,
+        ac_sys = ac_sys,
+        prop_sys = prop_sys, 
+        prop_uns = prop_uns,
         rmsd = rmsd, 
         nrmsd = nrmsd, 
-        mse = list(mse = mse, sys = mse_sys, uns = mse_uns), 
+        mse = mse, 
+        mse_sys = mse_sys,
+        mse_uns = mse_uns, 
         rsq = rsq, 
         yhat = yhat, 
         d = d,
@@ -255,7 +268,8 @@ regr_metrics <- function(x,y) {
     )
 }
 
-## function to plot a matrix as an image with axis tick labels and colorbar (from http://www.phaget4.org/R/image_matrix.html) 
+#### my_image_plot -----------------------------------------------------------
+## plot a matrix as an image with axis tick labels and colorbar (from http://www.phaget4.org/R/image_matrix.html) 
 my_image_plot <- function(x, ...){
   min <- min(x)
   max <- max(x)
@@ -322,10 +336,19 @@ my_image_plot <- function(x, ...){
   layout(1)
 }
 
-## function to convert row names of dataframes to FCID
-RownamesToFCID <- function(indataframe){
+#### FCID_2_rownames -----------------------------------------------------------
+## convert FCID torow names of a dataframe
+FCID_2_rownames <- function(indataframe){
   rownames(indataframe) <- indataframe[,"FCID"]
   indataframe <- indataframe[,2:ncol(indataframe)]
   return(indataframe)
 }
 
+#### rownames_2_FCID -----------------------------------------------------------
+## convert row names of a dataframe to FCID
+rownames_2_FCID <- function(indataframe){
+  indataframe <- data.frame(rownames(indataframe), indataframe)
+  rownames(indataframe) <- NULL
+  colnames(indataframe)[1] <- "FCID"
+  return(indataframe)
+}

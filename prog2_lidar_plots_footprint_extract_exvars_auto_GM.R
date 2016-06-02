@@ -1,28 +1,25 @@
-########################################################
-## Explanatory variable extraction
-## extract mean values for all explanatory rasters spatially coincident with sampled lidar plot polygons for both training and validation plots
-## mean plot level values of explanatory variables is weighted average based on relative proportion of each pixel within the polygon (aka normalized wieghts)
-####################################################### 
-##----------------------
-## TO DO
-##----------------------
+#### CODE INFOS -------------------------------------------------------------------
 
-#### STILL TO DO ####
-# -TXOMIN: check new Ch_attr
-# - NTEMS tagliati al posto sbagliato, extent non e' uguale ma la cosa e' facilissima da risolvere: altro extract separato per le Topo (che stupido...si poteva fare anche prima!): training OK ma in test ci vuole overlap per applicare il modello allo stack di rasters
-# - #### TOPO KO ####
-# - ############# = TODEL
-# - check weighted average over 25m unit for all layers
-# - rastertemp directory is used?
-# - !!! uncomment unlink() !!!
-# - !!! uncomment params2$pred.names.sh !!!
-# - prior to actual run, delete all UTMzones folders in Landsat_dir E:\NTEMS otherwise copy_paste_UTMdata() will not be run
-# - test with new ceiling() in parallel extract on blocks of poly.val
-# - check projections to ensure we're sampling proper locations
+## Project Name: NationalImputationForestAttributes
+## Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hoabart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
+## File Name:                              
+## Objective: Explanatory variable extraction
+##            Extract values for all explanatory rasters spatially coincident with sampled lidar plot polygons for both training and validation plots
+##            Mean plot level values of explanatory variables is weighted average based on relative proportion of each pixel within the polygon (normalized weights)
 
+#### TO DO -------------------------------------------------------------------
 
+## STILL TO DO:
+# Prior to actual run:
+# - use foreach on blocks
+# - change to use poly for sampling
+# - check no redefinition of paramsGL$zones 
+# - check parameters
+# - delete all UTMzones folders in Landsat_dir E:\NTEMS otherwise copy_paste_UTMdata() will not be run
+# - uncomment final unlink() to delete copied folders
+# - check function copy_paste copies .dat files
 
-#### SOLVED ####
+## SOLVED:
 # -V why weights = FALSE ? -- was wrong in Harolds version: should be set as TRUE to have weighted averages
 # -V why not extracting VAL data at the same time? Employed only at the very end to assess models' accuracy: see "grep -r -n 'TV == "VALIDATION"' *" run in "cd X:/Harolds_orginal_work/SK_nn_forest/sk_docs_code/Rcode"
 # -V script between this and rf_gnn should be the one that takes train and val points and merges them by ecozone -- we don't do that
@@ -40,7 +37,7 @@
 # -V check automatic usage of cores (cluster) in extract() -- uses 1 core only if not called within a foreach (multiple parallel extract can be run efficiently this way)
 # -V how to aggregate change classes (unclass)?  -- leave them like that with 10 classes (and separated 'unclassified' classes), we can always merge them later on
 # -V use 500m hexag? -- let's keep 250m and try to model things with a RF on 100'000+ points (parallel!)
-# -V no point in saving a dataset (table) for mapping, do a script creating variables on the fly for prediction/mapping -- yes, thats the weay to do it, consider saving a TC components file (5 layers) with the new narrow extent
+# -V no point in saving a dataset (table) for mapping, do a script creating variables on the fly for prediction/mapping -- yes, thats the way to do it, consider saving a TC components file (5 layers) with the new narrow extent
 # -V add ArcGIS/ArcPy AreaSolarRadiation() ? -- no, super-slow to compute and already included in TSRI
 # -v check extents (Topo by Geordie vs rest) -- Geordie has a script to change and resave all NTEMS layers at the new narrow extent (less overlap) with the same folder structure
 # -V convert "Year of " variables to "Years since" to avoid weird averages
@@ -59,54 +56,39 @@
 # -V use nearest neighbor for sampling years layers (no average) -- OK like that
 # -V TSRI different values the two different layers -- layers have been recomputed since Harold's study
 # -V hours of daylight from lat long -- only a function of Lat, annual averages out, length of day at Aug 1st is better but ultimately is not used bc highly correlated with latitude
+# -V #### TOPO KO  -- split extract for each type of predictor, so now Topo OK
+# -V check new Ch_attr -- now recode is OK (merge all unclassified)
+# -V NTEMS cut to different extents -- separate extract() for Topo
+# -V rastertemp directory is used? -- dont know but doesnt hurt to have it there
+# -V check projections to ensure we're sampling proper locations if-else-stop blocks inserted in script
+# -V uncomment params2$pred.names.sh -- now extract for topo is separate so topo is included in pred.names 
+# -V test with new ceiling() in parallel extract on blocks of poly.val -- added if-else-stop block that checks for equal nr of rows of the input and outputs of the foreach
 
+#### READS/WRITES ------------------------------------------------------------
 
-
-##----------------------
-## READS
-##----------------------
+## READS:
 # - "<UTMzone>_pt_centerpt_training_validation.shp": (from prog1) point shp with centerpoints of selected polygons
 # - "<UTMzone>_poly_training_validation.shp": (from prog1) polygon shp with selected polygons (after recheck for 9-plots/polyg after subsetting wrt availability of both LiDAR and forest attributes)
 
-
-##----------------------
-## WRITES
-##----------------------
+## WRITES:
 # - "poly_training_validation_exvars_extract.csv": (for prog3a and prog3) csv table with explanatory variables (X) for selected TRN and VAL samples (3x3 plots or single plot polygons with weighted average pixels values)
 
-#-----------------------------------------------------------------
-#-------------------------     START     -------------------------
-#-----------------------------------------------------------------
+#### INIT --------------------------------------------------------------------
 
 print('Prog2: explanatory variables extraction')
 
-rm(list=ls()) # clear all variables
+rm(list=ls()) ## clear all variables
 
-##------------------------
-## LOAD GLOBAL PARAMETERS
-##------------------------
 param_file = "D:/Research/ANALYSES/NationalImputationForestAttributes/BAP_Imputation_working/wkg/AllUTMzones_paramsGL.Rdata"
 load(param_file)
 
-##!!!!!!!!!!!!!!!!!!!!
-# paramsGL$zones <- c('UTM9S', 'UTM12N')
-##!!!!!!!!!!!!!!!!!!!!
-
 source("Functions_NatImp.R")
 
-##----------------------------
-## SCRIPT SPECIFIC PARAMETERS
-##----------------------------
+#### SCRIPT SPECIFIC PARAMETERS -------------------------------------------
 
-##!!!!!!!!!!!!!!!!!!!
-## Prior to actual run, delete all UTMzones folders in Landsat_dir E:\NTEMS otherwise copy_paste_UTMdata() will not be run
-##!!!!!!!!!!!!!!!!!!!
 params2 <- list()
 
-## .lg names are generally used to load files, .sh are shorter dataframe column names
-
-##---------------
-## 22 predictors:
+## 22 predictors (.lg names are generally used to load files, .sh are shorter dataframe column names):
 
 ## 6 input spectral bands
 bands.names.lg <- list('band1', 'band2', 'band3', 'band4', 'band5', 'band7')
@@ -132,37 +114,28 @@ cngattr.names.sh <- list("Ch_attr")
 topo.names.lg <- list("Elevation", "Slope", "Topographic_wetness_index", "Topographic_solar_radiation_index")
 topo.names.sh <- list("Elev", "Slope", "TWI", "TSRI")
 
-## 2 continuous variables for de-trending
-trends.names.lg <- list("Longitude", "Latitude")
-trends.names.sh <- list("Long", "Lat")
+## 2 spatially contiuous variables for de-trending: coordinates
+coords.names.lg <- list("Longitude", "Latitude")
+coords.names.sh <- list("Long", "Lat")
 
-######### TODEL ############
-## USE THIS TILL ALL LAYERS ARE READY WITH SAME EXTENT
-# params2$pred.names.lg <- list(bands=bands.names.lg, TC=TC.names.lg, VI=VI.names.lg, yrs=year.of.cng.names.lg, cngattr=cngattr.names.lg, trends=trends.names.lg)
-# params2$pred.names.sh <- list(bands=bands.names.sh, TC=TC.names.sh, VI=VI.names.sh, yrs=year.of.cng.names.sh, cngattr=cngattr.names.sh, trends=trends.names.sh)
-######### TODEL ############
+params2$pred.names.lg <- list(bands=bands.names.lg, TC=TC.names.lg, VI=VI.names.lg, yrs=year.of.cng.names.lg, cngattr=cngattr.names.lg, topo=topo.names.lg, coords=coords.names.lg)
+params2$pred.names.sh <- list(bands=bands.names.sh, TC=TC.names.sh, VI=VI.names.sh, yrs=year.of.cng.names.sh, cngattr=cngattr.names.sh, topo=topo.names.sh, coords=coords.names.sh)
+
+params2$disk.names <- list("//frst-cdw-2231j/I", "//frst-cdw-2231j/J")
 
 ## choice of sampling unit for continuous variables (bands and topo)
-# params2$contin.sampling.shp <- 'poly'
-params2$contin.sampling.shp <- 'cpt'
-
-params2$pred.names.lg <- list(bands=bands.names.lg, TC=TC.names.lg, VI=VI.names.lg, yrs=year.of.cng.names.lg, cngattr=cngattr.names.lg, topo=topo.names.lg, trends=trends.names.lg)
-params2$pred.names.sh <- list(bands=bands.names.sh, TC=TC.names.sh, VI=VI.names.sh, yrs=year.of.cng.names.sh, cngattr=cngattr.names.sh, topo=topo.names.sh, trends=trends.names.sh)
-
-params2$disk.names <- list("//2234b/J", "//2234b/H")
-
-## not used so far as nr available cores defines block size
-# params2$sizeBlocks <- 200   
+params2$contin.sampling.shp <- 'poly'
+# params2$contin.sampling.shp <- 'cpt'
 
 param_file_prog2 = file.path(base_wkg_dir, 'AllUTMzones_params2.Rdata', fsep = .Platform$file.sep) 
 save(params2, file = param_file_prog2)
 
-##----------------------------
-## LOAD PACKAGES
-##----------------------------
+#### LOAD PACKAGES ----------------------------------------------------------
+
 list.of.packages <- c("rgdal",
                       "raster",
                       "sp",
+                      "dplyr",    ## to be loaded before foreach to avoid "assertion failed" errors
                       "landsat",
                       "lattice",
                       "lubridate", 
@@ -175,6 +148,8 @@ if(length(new.packages)) install.packages(new.packages)
 for (pack in list.of.packages){
   library(pack, character.only=T)
 }
+
+#### START ------------------------------------------------------------------
 
 tic <- proc.time() ## start clocking global time
 
@@ -189,6 +164,8 @@ for (z in 1:length(paramsGL$zones)) {
   print(paste('Processing zone', zone))   ## converts its arguments (via as.character) to character strings, and concatenates them (separating them by the string given by sep or by a space by default)
   wkg_dir = file.path(base_wkg_dir,zone, fsep = .Platform$file.sep)
 
+#### COPY DATA FROM REMOTE DISKS ---------------------------------------------
+  
   ## call copy_paste_UTMdata() only if no folder named like that exists in Landsat_dir
   cmd <- sprintf('folder.exists.bool <- file.exists(file.path("%s", "UTM_%s", fsep = .Platform$file.sep))', Landsat_dir, zone.nr)
   eval(parse(text=cmd))
@@ -206,17 +183,13 @@ for (z in 1:length(paramsGL$zones)) {
   raster_tmp_dir <- "raster_tmp"
   dir.create(raster_tmp_dir, showWarnings = F, recursive = T)  ## creates temp directory in BAP_Imputation_working/wkg/<UTMzone>
   rasterOptions(tmpdir = raster_tmp_dir)
-  
-  ## load polygon centerpoint shapefile to get FCID
-  ## load training and validation polygons
-  cpt.poly.training.validation <-  readOGR(dsn = wkg_dir, layer = paste(zone,"_pt_centerpt_training_validation",sep = ''))
-  poly.training.validation <-  readOGR(dsn = wkg_dir, layer = paste(zone,"_poly_training_validation",sep = ''))
 
+#### READ FILES -----------------------------------------------------
   
-  ##--------------------------------
-  ##         load rasters
-  ##--------------------------------
-  
+  ## read training and validation polygons and centerpoints
+  poly.training.validation <-  readOGR(dsn = wkg_dir, layer = paste(zone,"_poly_training_validation",sep = ''))
+  cpt.poly.training.validation <-  readOGR(dsn = wkg_dir, layer = paste(zone,"_pt_centerpt_training_validation",sep = ''))
+
   ## Landsat bands for year 2010 (6 layers), TC layer will be computed later (first for TRN/VAL and later for all Canada when mapping)
   cmd <- sprintf('Bands <- brick(file.path("%s", "UTM_%s", "Results", "proxy_values", "SRef_UTM%s_2010_proxy_v2.dat", fsep = .Platform$file.sep))', Landsat_dir, zone.nr, zone.nr)  
   eval(parse(text=cmd))
@@ -238,7 +211,9 @@ for (z in 1:length(paramsGL$zones)) {
   Slope <- raster(file.path(topo_dir, "TopoMetrics", paste(zone, "_TopoMetrics.dat", sep= ''), fsep = .Platform$file.sep), band = 1)  ## band 1 is Slope whereas band 2 and 3 are Aspect and Shaded Relief
   Topographic_wetness_index <- raster(file.path(topo_dir, "TWI", paste(zone, "_TWI.dat", sep= ''), fsep = .Platform$file.sep))
   Topographic_solar_radiation_index <- raster(file.path(topo_dir, "TSRI",  paste(zone, "_TSRI.dat", sep= ''), fsep = .Platform$file.sep))
-  
+
+#### CREATE RASTER STACKS ---------------------------------------------------
+
   ## separate read of continuous variables (bands and topo) since we don't have topo and other NTEMS data matching in extent
   vars.bands <- c(bands.names.sh)   ## to rename columns of final dataframe
   str.bands <- paste(c('Bands'), collapse=", ")    ## creates string of variable names to input in stack()
@@ -270,19 +245,23 @@ for (z in 1:length(paramsGL$zones)) {
     stop(sprintf("%s: projections of raster stack and shapefiles loaded in prog2 do not match.", zone))
   }
 
+#### PARALLEL LOOP ON BLOCKS OF poly.training.validation ----------------------
+
   sizeBlocks <- ceiling( nrow(poly.training.validation@data) / min(detectCores(), nrow(poly.training.validation@data)) )  ## to avoid problems when number of rows of the matrix is smaller than the nr of cores 
   nblocks <- ceiling(nrow(poly.training.validation@data)/sizeBlocks)   ## to avoid problems when sizeBlocks is small (nblocks will allow to cover just a little more, or exactly, the size of data)
   nr.clusters <- nblocks
   cl <- makeCluster(nr.clusters)
   registerDoParallel(cl)
   exvars.extract <- foreach (blck = 1:nblocks, .combine='rbind', .packages=list.of.packages) %dopar% {   #add .verbose=T for more info when debugging
-    ##---- WHEN NOT USING FOREACH, TESTING PHASE ----
-  #   nblocks <- 21
-  #   for (blck in 20:nblocks) {
-  #     sizeBlocks <- 7
-    ##---- WHEN NOT USING FOREACH, TESTING PHASE ----
+    ## WHEN NOT USING FOREACH, TESTING PHASE
+#     nblocks <- 21
+#     for (blck in 20:nblocks) {
+#       sizeBlocks <- 7
+    ## WHEN NOT USING FOREACH, TESTING PHASE
     
     indPart <- seq(from=(blck-1)*sizeBlocks+1, to=min(blck*sizeBlocks, nrow(poly.training.validation@data)), by=1)
+
+#### EXTRACT VALUES OVER POLYGONS ---------------------------------------------------
     
     ## selection of the sampling unit for continuous variables
     if (params2$contin.sampling.shp == 'poly') {   
@@ -308,38 +287,41 @@ for (z in 1:length(paramsGL$zones)) {
             cellnumbers = F, small = F, df = T, factors = F, sp = F)
     exvars.extract.categ$ID <- NULL
     
-    ##------------ TO UNCOMMENT -----------------
     cbind(exvars.extract.bands, exvars.extract.topo, exvars.extract.years.of, exvars.extract.categ)
-    ##------------ TO UNCOMMENT -----------------
-    
-    ##---- WHEN NOT USING FOREACH, TESTING PHASE ----
+
+    ## WHEN NOT USING FOREACH, TESTING PHASE
     # exvars.extract <- cbind(exvars.extract.bands, exvars.extract.topo, exvars.extract.years.of, exvars.extract.categ)
-    ##---- WHEN NOT USING FOREACH, TESTING PHASE ----
+    ## WHEN NOT USING FOREACH, TESTING PHASE
     
   }
   
   stopCluster(cl)
   
-#------------ TO UNCOMMENT -----------------
-  ## delete folder after having read the data and make room for the next zone's data
-#   cmd <- sprintf('unlink(file.path("%s", "UTM_%s", fsep = .Platform$file.sep), recursive = T, force = T)', Landsat_dir, zone.nr)
-#   eval(parse(text=cmd))
-#------------ TO UNCOMMENT -----------------  
+  ## check if nr of rows is the same in input and output of the foreach (to avoid issues with block indexes)
+  if ( nrow(poly.training.validation@data) != nrow(exvars.extract) ) {
+    stop(sprintf("Zone %s: nr. of rows is different for poly.training.validation and exvars.extract", zone))
+  }
   
+  ## delete folder after having read the data and make room for the next zone's data
+  cmd <- sprintf('unlink(file.path("%s", "UTM_%s", fsep = .Platform$file.sep), recursive = T, force = T)', Landsat_dir, zone.nr)
+  eval(parse(text=cmd))
+
   ## delete temp folder with temp rasters
   unlink(raster_tmp_dir, recursive = T, force = T)
-  
+
+#### ADD LAT/LONG & EXTRA INFO TO DATA FRAME IN LOOP  ----------------------------------
+
   ## coordinates of plot polygons
   long.lat <- as.data.frame(coordinates(spTransform(cpt.poly.training.validation, CRS("+proj=longlat"))))
-  trends <- as.data.frame(long.lat)
-  colnames(trends) <- trends.names.sh
+  coords <- as.data.frame(long.lat)
+  colnames(coords) <- coords.names.sh
   
   UTMzone.ID <- as.data.frame(rep(zone.nr, nrow(cpt.poly.training.validation)))
   colnames(UTMzone.ID) <- "UTMzone"
   
-  ## bind training polygon information with UTMzone ID, extracted explanatory variables and trends (coordinates, etc.)
-  FCID <- cpt.poly.training.validation@data[,c("FCID","POLY250ID","TV")]
-  full.table[[z]] <- cbind(FCID, UTMzone.ID, exvars.extract, trends)
+  ## bind training polygon information with UTMzone ID, extracted explanatory variables and coordinates
+  infos <- cpt.poly.training.validation@data[,c("FCID","POLY250ID","TV")]
+  full.table[[z]] <- cbind(infos, UTMzone.ID, exvars.extract, coords)
   
   ## clock UTM zone time
   temp.toc <- proc.time()-temp.tic[3]
@@ -349,7 +331,9 @@ for (z in 1:length(paramsGL$zones)) {
 
 full.df <- as.data.frame(rbindlist(full.table))
 
-all.bands <- as.matrix(full.df[, c("b1", "b2", "b3", "b4", "b5", "b7")])
+#### ADD SPECTRAL INDICES, RECODE CH_ATTR OUTSIDE LOOP & WRITE CSV ------------------------------------
+
+all.bands <- as.matrix(full.df[, c("b1", "b2", "b3", "b4", "b5", "b7")]/10000)  ## to bring back the values to reflectance (needed for EVI)
 
 ## compute TCs
 TC.list <- bands_2_TC(all.bands)
@@ -363,24 +347,31 @@ NBR <- (all.bands[,"b4"]-all.bands[,"b7"])/(all.bands[,"b4"]+all.bands[,"b7"])
 VI.df <- data.frame(NDVI, EVI, NBR)
 colnames(VI.df) <- VI.names.sh
 
-## recode Change attr from 10 to 6 classes:
+## recode Change attr from 10 to 5 classes:
 ## original 10 classes:  0="No change", 1="Fire", 2="Harvesting", 3="Non-stand replacing", 4="Road", 5="Unclassified (Fire)", 6="Unclassified (Harvesting)", 7="Unclassified (Non-stand replacing)", 8="Unclassified (Road)", 9="Unclassified (Well-site)"
-## retained 6 classes:   0="No change", 1="Fire", 2="Harvesting", 3="Non-stand replacing", 4="Road", 5="Unclassified"
+## retained 5 classes:   0="No change", 1="Fire", 2="Harvesting", 3="Non-stand replacing", 4="Infrastructure"
 Ch_attr.10classes <- as.matrix(full.df[, "Ch_attr"])  
-Ch_attr.6classes <- Ch_attr.10classes
-Ch_attr.6classes[Ch_attr.10classes %in% c(6, 7, 8, 9)] <- 5
+Ch_attr.reclassified <- Ch_attr.10classes
+Ch_attr.reclassified[Ch_attr.10classes == 5] <- 1  ## merge Fire and unclassified Fire
+Ch_attr.reclassified[Ch_attr.10classes == 6] <- 2  ## merge Harvesting and unclassified Harvesting
+Ch_attr.reclassified[Ch_attr.10classes == 7] <- 3  ## merge Non-stand replacing and unclassified Non-stand replacing
+Ch_attr.reclassified[Ch_attr.10classes == 8] <- 4  ## merge Road and unclassified Road
+Ch_attr.reclassified[Ch_attr.10classes == 9] <- 4  ## merge Road and unclassified Well-site, now called Infrastructure
 
 ## substitute the old Ch_attr column with the newly recoded one
-full.df[, "Ch_attr"] <- as.data.frame(Ch_attr.6classes)
+full.df[, "Ch_attr"] <- as.data.frame(Ch_attr.reclassified)
 
 ## add the 5 new TC components and the 3 VIs
 full.df <- cbind(full.df, TC.df, VI.df)
 
 ## reorder columns to match predefined order and remove ID columns
-full.df <- full.df[, c("FCID", "POLY250ID", "TV", "UTMzone", unlist(params2$pred.names.sh))] 
+full.df <- full.df[, c("FCID", "POLY250ID", "TV", "UTMzone", unlist(params2$pred.names.sh))]
 
-## export full.df (former "poly.training.validation.exvars.extract") as csv
-write.csv(full.df, file = file.path(base_wkg_dir, "poly_training_validation_exvars_extract.csv", sep = ''))
+## write full.df (former "poly.training.validation.exvars.extract") as csv after sortrows (arrange) based on FCID (for direct comparison with lidar_metrics_mean_training_validation.csv)
+full.df$FCID <- as.character(full.df$FCID)
+write.csv(arrange(full.df, FCID), file = file.path(base_wkg_dir, "poly_training_validation_exvars_extract.csv", sep = ''))
+
+#### PRINT LOGS ---------------------------------------------------------
 
 ## clock global time
 toc <- proc.time()-tic[3]
@@ -391,8 +382,3 @@ print(end.message)
 unlink(file.path(base_wkg_dir, "log_prog2.txt", sep = ''), recursive = T, force = T)
 list.to.print <- append(copy.time.UTMzone, end.message)
 lapply(list.to.print, write, file.path(base_wkg_dir, "log_prog2.txt", sep = ''), append=T)
-
-
-
-
-
