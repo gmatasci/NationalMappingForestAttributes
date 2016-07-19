@@ -156,7 +156,7 @@ full.df <- foreach (z = 1:length(paramsGL$zones), .combine='rbind', .packages=li
   rm(lidar.metrics.forest.attributes)
   gc()
 
-  ## large number of plots have lidar metrics but no derived forest attributes becuase only a subset of the plots are in forest condtion class as detemined by sk_mask
+  ## large number of plots have lidar metrics but no derived forest attributes because only a subset of the plots are in forest condtion class as detemined by sk_mask
   ## so we check how many of the lidar sample plots have 9 complete lidar points with metrics and derived forest attributes
   lidar.sample.df <- lidar.sample@data  ## starting point is the already "9 plots/polyg"-checked samples but which needs to be rechecked after the merge with the attributes info.
   lidar.metrics.attributes.sample <- merge(lidar.metrics.attributes, lidar.sample.df, by.x = "unique_id", by.y = "Unique_ID")     ## merge with above dataframe of lidar metrics and forest attributes

@@ -12,7 +12,7 @@
 ## STILL TO DO:
 # Prior to actual run:
 # - use foreach on blocks
-# - change to use poly for sampling
+# - use poly for sampling
 # - check no redefinition of paramsGL$zones 
 # - check parameters
 # - delete all UTMzones folders in Landsat_dir E:\NTEMS otherwise copy_paste_UTMdata() will not be run
@@ -102,9 +102,10 @@ TC.names.sh <- list('TCB', 'TCG', 'TCW', 'TCA', 'TCD')
 VI.names.lg <- list('Normalized Difference Vegetation Index', 'Enhanced Vegetation Index', 'Normalized Burn Ratio')  
 VI.names.sh <- list('NDVI', 'EVI', 'NBR')
 
-## 1 unaverageable "years of" change variables (separate extract())
-year.of.cng.names.lg <- list("Greatest_Change_Year")
-year.of.cng.names.sh <- list("GreatCh_yr")
+## 1 unaverageable "years of/since" change variables (separate extract())
+year.cng.input.names.lg <- list("Greatest_Change_Year")
+year.cng.names.lg <- list("Years_Since_Greatest_Change")
+year.cng.names.sh <- list("YrsSince_GrCh")
 
 ## 1 unaverageable categorical layer of type of changes
 cngattr.names.lg <- list("Change_attribution")
@@ -118,8 +119,10 @@ topo.names.sh <- list("Elev", "Slope", "TWI", "TSRI")
 coords.names.lg <- list("Longitude", "Latitude")
 coords.names.sh <- list("Long", "Lat")
 
-params2$pred.names.lg <- list(bands=bands.names.lg, TC=TC.names.lg, VI=VI.names.lg, yrs=year.of.cng.names.lg, cngattr=cngattr.names.lg, topo=topo.names.lg, coords=coords.names.lg)
-params2$pred.names.sh <- list(bands=bands.names.sh, TC=TC.names.sh, VI=VI.names.sh, yrs=year.of.cng.names.sh, cngattr=cngattr.names.sh, topo=topo.names.sh, coords=coords.names.sh)
+params2$pred.names.lg <- list(bands=bands.names.lg, TC=TC.names.lg, VI=VI.names.lg, yrs=year.cng.names.lg, cngattr=cngattr.names.lg, topo=topo.names.lg, coords=coords.names.lg)
+params2$pred.names.sh <- list(bands=bands.names.sh, TC=TC.names.sh, VI=VI.names.sh, yrs=year.cng.names.sh, cngattr=cngattr.names.sh, topo=topo.names.sh, coords=coords.names.sh)
+
+params2$years.since.no.change <- 50  ## value to assign to pixels with 0 as Year_of_GreatCh (no change areas are set as last changed in this many years ago)
 
 params2$disk.names <- list("//frst-cdw-2231j/I", "//frst-cdw-2231j/J")
 
@@ -170,7 +173,7 @@ for (z in 1:length(paramsGL$zones)) {
   cmd <- sprintf('folder.exists.bool <- file.exists(file.path("%s", "UTM_%s", fsep = .Platform$file.sep))', Landsat_dir, zone.nr)
   eval(parse(text=cmd))
   if ( !folder.exists.bool ) {
-    log.copy.paste <- copy_paste_UTMdata(params2$disk.names, zone, year.of.cng.names.lg, Landsat_dir)
+    log.copy.paste <- copy_paste_UTMdata(params2$disk.names, zone, year.cng.input.names.lg, Landsat_dir)
     if (length(log.copy.paste$list.missing.files)>0) {
       stop(sprintf("Missing files for zone %s", zone))
     }
@@ -197,7 +200,7 @@ for (z in 1:length(paramsGL$zones)) {
   ## "Greatest_Change_Year" (1 layer)
   ## (formerly read all change raster layers from folder <UTM_zone.nr>\Results\Change_metrics\
   ## Landsat_dir goes at the end as a variable bc if left inside sprintf as a string is not detected by foreach and thus not passed to the cores (error: "object 'Landsat_dir' not found")
-  for (var in year.of.cng.names.lg) {
+  for (var in year.cng.input.names.lg) {
     cmd <- sprintf('%s <- raster(file.path("%s", "UTM_%s", "Results", "Change_metrics", "SRef_%s_%s.dat", fsep = .Platform$file.sep))', var, Landsat_dir, zone.nr, zone.nr, var)  
     eval(parse(text=cmd))
   }
@@ -219,8 +222,8 @@ for (z in 1:length(paramsGL$zones)) {
   str.bands <- paste(c('Bands'), collapse=", ")    ## creates string of variable names to input in stack()
   vars.topo <- c(topo.names.sh)  
   str.topo <- paste(c(topo.names.lg), collapse=", ")
-  vars.years <- year.of.cng.names.sh
-  str.years <- paste(year.of.cng.names.lg, collapse=", ")
+  vars.years <- year.cng.names.sh
+  str.years <- paste(year.cng.input.names.lg, collapse=", ")
   vars.categ <- cngattr.names.sh
   str.categ <- paste(cngattr.names.lg, collapse=", ")
   
@@ -234,7 +237,7 @@ for (z in 1:length(paramsGL$zones)) {
   
   cmd <- sprintf("exvars.stack.years <- stack(%s)", str.years)  
   eval(parse(text=cmd))
-  names(exvars.stack.years) <- vars.years
+  names(exvars.stack.years) <- vars.years  ## already change here the name from "Year of" to "Years since"
   
   cmd <- sprintf("exvars.stack.categ <- stack(%s)", str.categ) 
   eval(parse(text=cmd))
@@ -254,9 +257,9 @@ for (z in 1:length(paramsGL$zones)) {
   registerDoParallel(cl)
   exvars.extract <- foreach (blck = 1:nblocks, .combine='rbind', .packages=list.of.packages) %dopar% {   #add .verbose=T for more info when debugging
     ## WHEN NOT USING FOREACH, TESTING PHASE
-#     nblocks <- 21
-#     for (blck in 20:nblocks) {
-#       sizeBlocks <- 7
+#     nblocks <- 19
+#     for (blck in 17:nblocks) {
+#       sizeBlocks <- 58
     ## WHEN NOT USING FOREACH, TESTING PHASE
     
     indPart <- seq(from=(blck-1)*sizeBlocks+1, to=min(blck*sizeBlocks, nrow(poly.training.validation@data)), by=1)
@@ -279,18 +282,24 @@ for (z in 1:length(paramsGL$zones)) {
                                    cellnumbers = F, small = F, df = T, factors = F, sp = F) 
 
     ## categorical/un-averageable variables: use cpt.poly.training.validation so that we extract only one single value, that of the pixels right below the center of the plot
-    exvars.extract.years.of <- extract(exvars.stack.years, cpt.poly.training.validation[indPart, ], na.rm = F,
+    exvars.extract.years <- extract(exvars.stack.years, cpt.poly.training.validation[indPart, ], na.rm = F,
                        cellnumbers = F, small = F, df = T, factors = F, sp = F)
-    exvars.extract.years.of$ID <- NULL
-    colnames(exvars.extract.years.of) <- year.of.cng.names.sh
+    exvars.extract.years$ID <- NULL
+    
+    ## to transform from "Year of" to "Years since"
+    idx.zeros <- exvars.extract.years$YrsSince_GrCh == 0   
+    exvars.extract.years$YrsSince_GrCh[idx.zeros] <- params2$years.since.no.change
+    exvars.extract.years$YrsSince_GrCh[!idx.zeros] <- paramsGL$TARGET_YEAR - exvars.extract.years$YrsSince_GrCh[!idx.zeros]
+    exvars.extract.years$YrsSince_GrCh[exvars.extract.years$YrsSince_GrCh < 0] <- params2$years.since.no.change  ## for pixels having changed after our TARGET_YEAR (2010) let's assign the no-change value (50)
+
     exvars.extract.categ <- extract(exvars.stack.categ, cpt.poly.training.validation[indPart, ], na.rm = F,
             cellnumbers = F, small = F, df = T, factors = F, sp = F)
     exvars.extract.categ$ID <- NULL
     
-    cbind(exvars.extract.bands, exvars.extract.topo, exvars.extract.years.of, exvars.extract.categ)
+    cbind(exvars.extract.bands, exvars.extract.topo, exvars.extract.years, exvars.extract.categ)
 
     ## WHEN NOT USING FOREACH, TESTING PHASE
-    # exvars.extract <- cbind(exvars.extract.bands, exvars.extract.topo, exvars.extract.years.of, exvars.extract.categ)
+    # exvars.extract <- cbind(exvars.extract.bands, exvars.extract.topo, exvars.extract.years, exvars.extract.categ)
     ## WHEN NOT USING FOREACH, TESTING PHASE
     
   }

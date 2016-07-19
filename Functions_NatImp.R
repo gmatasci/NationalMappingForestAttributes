@@ -191,17 +191,18 @@ perf_oob_Random_Forest <- function(X, Y, params, seed){
 }
 
 #### regr_metrics -----------------------------------------------------------
-## assess the performance of a regression model
+## assess the performance of a regression model: x = observed, y = predicted
 regr_metrics <- function(x,y) { 
     maxrange<-max(max(x),max(y))
     minrange<-min(min(x),min(y))
     rng<-maxrange-minrange
     n<-length(x)
-    bias<-sum(x-y)/n        				# Bias
+    bias<-mean(y-x)        				# Bias as predicted - observed
+    bias_pct <- mean((y-x)/x)*100   # Bias as predicted - observed normalized by observed value
     ssd<-sum((x-y)^2)        				# Sum of square difference;
     msd<-ssd/n 									# Mean square difference;
-    xmean<-sum(x)/n 
-    ymean<-sum(y)/n								# Mean values of x and y;
+    xmean<-sum(x)/n             # Mean values of x and y;
+    ymean<-sum(y)/n								
     xrange<-range(x)            #range values of x and y;
     yrange<-range(y)
     xstdev<-sd(x)          #standard devaition values for x and y;
@@ -229,6 +230,7 @@ regr_metrics <- function(x,y) {
     mpd_sys<-spd_sys/n 							# Systematic mean product-difference;
     rmsd<-sqrt(msd)								# Root mean of square difference;
     nrmsd<-rmsd/rng               # Normalized root mean of square difference;
+    rmsdpct<-(rmsd/abs(ymean))*100           # RMSE% of the predicted mean
     rmpd_uns<-sqrt(mpd_uns)						# Unsystematic square root of mean product-difference;
     rmpd_sys<-sqrt(mpd_sys)						# Systematic square root of mean product-difference;
     mse_sys<-(sum((x-yhat)^2))/n		# Calculating Willmott's measures of agreement (systematic and unsystematic )
@@ -240,6 +242,7 @@ regr_metrics <- function(x,y) {
       list(
         lmfit = lmfit_map,
         bias = bias,
+        bias_pct = bias_pct,
         ac = ac, 
         ac_uns = ac_uns,
         ac_sys = ac_sys,
@@ -247,6 +250,7 @@ regr_metrics <- function(x,y) {
         prop_uns = prop_uns,
         rmsd = rmsd, 
         nrmsd = nrmsd, 
+        rmsdpct = rmsdpct,
         mse = mse, 
         mse_sys = mse_sys,
         mse_uns = mse_uns, 
@@ -256,14 +260,16 @@ regr_metrics <- function(x,y) {
         maxrange = maxrange,
         xmean = xmean, 
         ymean = ymean, 
-        xrange = xrange,
-        yrange = yrange, 
+        xrangemin = xrange[1],
+        xrangemax = xrange[2],
+        yrangemin = yrange[1],
+        yrangemax = yrange[2],
         xstdev = xstdev, 
         ystdev = ystdev,
-        byvsx = b_yvsx, 
-        ayvsx = a_yvsx, 
-        bxvsy = b_xvsy, 
-        axvsy = a_xvsy
+        b_yvsx = b_yvsx, 
+        a_yvsx = a_yvsx, 
+        b_xvsy = b_xvsy, 
+        a_xvsy = a_xvsy
       )
     )
 }
@@ -346,9 +352,31 @@ FCID_2_rownames <- function(indataframe){
 
 #### rownames_2_FCID -----------------------------------------------------------
 ## convert row names of a dataframe to FCID
-rownames_2_FCID <- function(indataframe){
+rownames_2_FCID <- function(indataframe) {
   indataframe <- data.frame(rownames(indataframe), indataframe)
   rownames(indataframe) <- NULL
   colnames(indataframe)[1] <- "FCID"
   return(indataframe)
+}
+
+#### plot_colorByDensity -----------------------------------------------------------
+## scatterplot for dense data with nice color palette
+plot_colorByDensity <- function(x1,x2, xlim=c(min(x1),max(x1)), ylim=c(min(x2),max(x2)), xlab="",ylab="", main="") {
+  df <- data.frame(x1,x2)
+  x <- densCols(x1,x2, colramp=colorRampPalette(c("black", "white")))
+  df$dens <- col2rgb(x)[1,] + 1L
+  cols <-  colorRampPalette(c("#000099", "#00FEFF", "#45FE4F","#FCFF00", "#FF9400", "#FF3100"))(256)
+  df$col <- cols[df$dens]
+  plot.obj <- ggplot(df) +
+    geom_point(aes(x1, x2, col = col), size = 3) +
+    scale_color_identity() +
+    labs(x=xlab, y=ylab) + 
+    ggtitle(main) +
+    theme(axis.line = element_line(color="gray", size = 0.5),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          panel.border = element_rect(colour = "gray", fill=NA)) +
+    xlim(xlim) + ylim(ylim)
+  return(plot.obj)
 }

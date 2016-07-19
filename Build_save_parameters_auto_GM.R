@@ -24,7 +24,7 @@ paramsGL$zones <- c('UTM8N', 'UTM9N', 'UTM9S', 'UTM10N', 'UTM10S', 'UTM11N', 'UT
 # paramsGL$zones <- c('UTM12S', 'UTM13S', 'UTM14S')
 # paramsGL$zones <- c('UTM13S')
 # paramsGL$zones <- c('UTM9S', 'UTM12N', 'UTM13S', 'UTM20S')
-# paramsGL$zones <- c('UTM12N', 'UTM9S', 'UTM13S')
+# paramsGL$zones <- c('UTM12N', 'UTM9S')
 paramsGL$TARGET_YEAR <- 2010
 paramsGL$global.seed <- 2010  ## to have the same initialization for any random process
 paramsGL$unit.size <- 25   ## use 75 to have Harold's original setting
