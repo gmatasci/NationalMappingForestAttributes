@@ -143,6 +143,7 @@ if ( sum(full.df[, "flag_1stReturns_IDs"]) == nrow(full.df) && sum(full.df[, "fl
   print("Something's wrong!")
 }
 
-# clock global time
+## clock global time
 toc <- proc.time()-tic[3]
-print(paste("Prog0a, total elapsed time:",seconds_to_period(toc[3])))
+end.message <- sprintf("Prog0a, total elapsed time: %s, finished running on %s", seconds_to_period(toc[3]), Sys.time())
+print(end.message)

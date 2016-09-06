@@ -384,7 +384,7 @@ write.csv(arrange(full.df, FCID), file = file.path(base_wkg_dir, "poly_training_
 
 ## clock global time
 toc <- proc.time()-tic[3]
-end.message <- paste("Prog2, total elapsed time:",seconds_to_period(toc[3]))
+end.message <- sprintf("Prog2, total elapsed time: %s, finished running on %s", seconds_to_period(toc[3]), Sys.time())
 print(end.message)
 
 ## write log file

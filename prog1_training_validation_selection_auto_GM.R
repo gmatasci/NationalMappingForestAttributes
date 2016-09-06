@@ -239,4 +239,5 @@ stopCluster(cl)
 
 ## clock global time
 toc <- proc.time()-tic[3]
-print(paste("Prog1, total elapsed time:",seconds_to_period(toc[3])))
+end.message <- sprintf("Prog1, total elapsed time: %s, finished running on %s", seconds_to_period(toc[3]), Sys.time())
+print(end.message)

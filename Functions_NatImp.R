@@ -254,7 +254,7 @@ regr_metrics <- function(x,y) {
         mse = mse, 
         mse_sys = mse_sys,
         mse_uns = mse_uns, 
-        rsq = rsq, 
+        rsq = rsq,
         yhat = yhat, 
         d = d,
         maxrange = maxrange,
