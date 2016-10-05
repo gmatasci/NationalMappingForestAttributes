@@ -73,7 +73,7 @@ params4$lims.el_p95 <- c(10, 12)
 params4$lims.p_1r_2m <- c(40, 60)
 params4$targ.to.plot <- "el_p95"
 params4$nr.sampled.pix <- 500
-params4$ecozone.codes <- c(4, 6, 18)
+params4$ecozone.code <- c(4, 6, 18)
 params4$ecozone.names <- c("Boreal Plains", "Boreal Shield West", "Taiga Shield West")
 # params4$disk.names <- list("//frst-cdw-2231j/I", "//frst-cdw-2231j/J")
 
@@ -404,7 +404,7 @@ if (params4$check.temporal.val.traj | params4$check.temporal.val.boxpl) {
   if (params4$check.temporal.val.boxpl) {
   
     ## predicted boxplots over time on validation set + observed boxplot in 2010
-    for (ez in 1:length(params4$ecozone.codes)) {
+    for (ez in 1:length(params4$ecozone.code)) {
       
       if (table(df.with.year$ECOZONE)[params4$ecozone.name[ez]] == 0) { next } 
       
@@ -434,7 +434,7 @@ if (params4$check.temporal.val.traj | params4$check.temporal.val.boxpl) {
         # scale_color_manual(values=scale.ten.classes) + 
         ## add year of change
         
-    }   ## end for on params4$ecozone.codes
+    }   ## end for on params4$ecozone.code
       
   } ## end if params4$check.temporal.val.boxpl
   
@@ -543,9 +543,9 @@ if (params4$check.temporal.full.boxpl.corr) {
     
     yearly.predictions.full$indice <- NULL
     
-    for (ez in 1:length(params4$ecozone.codes)) {
+    for (ez in 1:length(params4$ecozone.code)) {
       
-      dt.final.full <- yearly.predictions.full[ecozone==params4$ecozone.codes[ez], -"ecozone", with=FALSE]
+      dt.final.full <- yearly.predictions.full[ecozone==params4$ecozone.code[ez], -"ecozone", with=FALSE]
       colnames(dt.final.full) <- gsub("19", "P_19", colnames(dt.final.full))
       colnames(dt.final.full) <- gsub("20", "P_20", colnames(dt.final.full))
       dt.yearly.pred.by.eco.full <- melt(dt.final.full)
@@ -570,9 +570,9 @@ if (params4$check.temporal.full.boxpl.corr) {
       dev.off()
       
       ## to check values plotted
-      # quantile(yearly.predictions.full[ecozone==params4$ecozone.codes[ez], '1984', with=F][[1]], probs=c(0.1, 0.25, 0.5, 0.75, 0.9))  ## list subsetting of the one-column data.table gives a vector
+      # quantile(yearly.predictions.full[ecozone==params4$ecozone.code[ez], '1984', with=F][[1]], probs=c(0.1, 0.25, 0.5, 0.75, 0.9))  ## list subsetting of the one-column data.table gives a vector
     
-    } ## end for on params4$ecozone.codes
+    } ## end for on params4$ecozone.code
     
     ## Yearly boxplots in changed areas, full map
       
@@ -586,9 +586,9 @@ if (params4$check.temporal.full.boxpl.corr) {
       
       yearly.predictions.full <- fread(file.name, header = T)
       
-      for (ez in 1:length(params4$ecozone.codes)) {
+      for (ez in 1:length(params4$ecozone.code)) {
         
-        dt.yearly.pred.by.eco.full <- yearly.predictions.full[ecozone==params4$ecozone.codes[ez], c(dt.targ.col.name, "time_since"), with=F]  ## this format is already "melted"
+        dt.yearly.pred.by.eco.full <- yearly.predictions.full[ecozone==params4$ecozone.code[ez], c(dt.targ.col.name, "time_since"), with=F]  ## this format is already "melted"
         dt.yearly.pred.by.eco.full <- dt.yearly.pred.by.eco.full[, time_since:=as.factor(time_since)]
         df.counts <- data.frame(table(dt.yearly.pred.by.eco.full$time_since))
         
@@ -631,18 +631,18 @@ if (params4$check.temporal.full.boxpl.corr) {
         grid.arrange(p1, p2, nrow=2)
         dev.off()
         
-      } ## end for on params4$ecozone.codes
+      } ## end for on params4$ecozone.code
       
     } ## end for on params3$Ch_attr.classes
     
   } ## end for on params3$targ.names.lg
 
   ## loop again over the ecozones to produce plots by ecozones
-  for (ez in 1:length(params4$ecozone.codes)) {
+  for (ez in 1:length(params4$ecozone.code)) {
     
     ## subset to current ecozone and remove ecozone column (-"ecozone")
-    dt.corr.all.elev_p95.by.eco <- dt.corr.all.elev_p95[ecozone==params4$ecozone.codes[ez], -"ecozone", with=F]  
-    dt.corr.all.cover_2m.by.eco <- dt.corr.all.cover_2m[ecozone==params4$ecozone.codes[ez], -"ecozone", with=F]
+    dt.corr.all.elev_p95.by.eco <- dt.corr.all.elev_p95[ecozone==params4$ecozone.code[ez], -"ecozone", with=F]  
+    dt.corr.all.cover_2m.by.eco <- dt.corr.all.cover_2m[ecozone==params4$ecozone.code[ez], -"ecozone", with=F]
     
     ## melt dt to have them in molten format accepted by ggplot
     mdf.elev_p95 <- melt(dt.corr.all.elev_p95.by.eco, id.vars="year", variable.name="bands")
@@ -676,7 +676,7 @@ if (params4$check.temporal.full.boxpl.corr) {
     print(plot.corr.cover_2m)
     dev.off()
     
-  }  ## end for on params4$ecozone.codes
+  }  ## end for on params4$ecozone.code
 
 }  ## end if on params4$check.temporal.full.boxpl.corr
 

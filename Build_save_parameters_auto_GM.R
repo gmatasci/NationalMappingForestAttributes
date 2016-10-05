@@ -31,7 +31,7 @@ paramsGL$unit.size <- 25   ## use 75 to have Harold's original setting
 
 #### DIRECTORIES -------------------------------------------------------------
 
-base_dir <- 'D:/Research/ANALYSES/NationalImputationForestAttributes/BAP_Imputation_working'
+base_dir <- 'D:/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR_NationalMappingForestAttributes'
 data_dir <- 'E:'
 LOP_dir <- file.path(data_dir,'LOP_data', fsep = .Platform$file.sep)
 Landsat_dir <- 'E:/NTEMS'

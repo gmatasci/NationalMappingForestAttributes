@@ -18,7 +18,6 @@
 # - params3$parallel.RF.MA <- T (or F if we want RF importance)
 # - params3$subsetting <- F
 # - use with the right variables to exclude a priori
-# - convert loaded Y.val.predicted.Yai[, "total_biomass"] (search for "TO COMMENT") only if it is the pre-retreat version currently copied in results folder
 
 # - subset scatterplots to have lower density of points (colors convey that info) using something like: df <- df[df$dens<quantile(df$dens, 0.25),]
 
@@ -75,13 +74,13 @@ print('Prog3: descriptive stats/plots, model selection and model assessment')
 
 rm(list=ls())
 
-param_file <- "D:/Research/ANALYSES/NationalImputationForestAttributes/BAP_Imputation_working/wkg/AllUTMzones_paramsGL.Rdata"
+param_file <- "D:/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR_NationalMappingForestAttributes/wkg/AllUTMzones_paramsGL.Rdata"
 load(param_file)
 
 param_file_prog2 = file.path(base_wkg_dir, 'AllUTMzones_params2.Rdata', fsep = .Platform$file.sep) 
 load(param_file_prog2)
 
-source("D:/Research/ANALYSES/NationalImputationForestAttributes/BAP_Imputation_working/scripts_NationalImputationForestAttributes/Functions_NatImp.R")
+source("D:/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR_NationalMappingForestAttributes/code/Functions_NatImp.R")
 
 ## subdirectory to save model assessment plots
 Assess.CAN.subdir <- file.path(base_figures_dir, "Assessment_CAN_level", fsep = .Platform$file.sep)
@@ -92,15 +91,15 @@ if (! file.exists(Assess.CAN.subdir)){dir.create(Assess.CAN.subdir, showWarnings
 params3 <- list()
 
 ## Actual parameters to be used
-params3$methods <- list("RF", "YAI") ## accepts "RF" and/or "YAI", used to run analyses only for the specified methods
+params3$subsetting <- T  ## to subset the dataset to a nr of samples = params3$nr.pts.plot (for debugging in development phase)
+params3$methods <- list("YAI") ## accepts "RF" and/or "YAI", used to run analyses only for the specified methods
 params3$run.checks <- F   ## whether to run checks for duplicate FCIDs, run only once, as of 06/06/2016 all is OK
 params3$run.descr.stats <- F  ## whether to run descriptive stats block
 params3$run.MS <- F     ## whether to run model selection block
-params3$run.MA <- F     ## whether to run model assessment block (if set to FALSE, the script loads the prediction files saved in the last run in base_results_dir, to be used to change the plots based on the same results though)
+params3$run.MA <- T    ## whether to run model assessment block (if set to FALSE, the script loads the prediction files saved in the last run in base_results_dir, to be used to change the plots based on the same results though)
 params3$run.SG <- T    ## whether to run stats & graphs block
-params3$parallel.RF.MS <- T     ## whether to run RF in parallel in the model selection block
+params3$parallel.RF.MS <- T    ## whether to run RF in parallel in the model selection block
 params3$parallel.RF.MA <- F     ## whether to run RF in parallel in the model assessment block (variable importance is not available after having run the RF in parallel, so is set to FALSE) 
-params3$subsetting <- F     ## to subset the dataset to a nr of samples = params3$nr.pts.plot (for debugging in development phase)
 params3$ntree.MS <- 100     ## nr of RF trees in the model selection phase (ideally 500 but then YaImp, which cannot be run in parallel) it takes ages
 params3$ntree.MA <- 100     ## nr of RF trees in the model assessment phase (very marginal improvements going higher than that, will cause bigger models and less priority on Westgrid for the mapping phase) 
 params3$LongLat.val <- F   ## wheter to run the validation along longitudinal or latitudinal chunks of the transect 
@@ -113,7 +112,7 @@ params3$plot.importance <- T   ## wheter to plot RF variable importance values
 params3$predictor.groups <- list("Rthresh_0p95", "Rthresh_0p95_no_coords")   ## in model selection phase: list of predictors to include in the datasets for training and prediction
 # params3$predictor.groups <- list("all", "SKstudy", "Rthresh_0p8", "Rthresh_0p95", "Rthresh_0p9_no_coords", "Rthresh_0p9_no_change", "Rthresh_0p9")  ## those used in a preceding exploratory analysis
 params3$best.predictor.group <- "Rthresh_0p95"   ## in model assessment phase: final list of predictors
-params3$predictors.to.rem.prior.know <- c('b1', 'b2', 'b3', 'b4', 'b5', 'b7', 'NDVI')  ## list of predictors to remove a priori: all of the raw spectral bands (only removing VIS bands here results in the same set as b4, b5 and b7 are then filtered out based on |R|) and the NDVI (saturation issues)
+params3$predictors.to.rem.prior.know <- c('b1', 'b2', 'b3', 'b4', 'b5', 'b7', 'NDVI', 'Lat', 'Long')  ## list of predictors to remove a priori: all of the raw spectral bands (only removing VIS bands here results in the same set as b4, b5 and b7 are then filtered out based on |R|) and the NDVI (saturation issues)
 
 params3$metrics.MS <- "rsq"    ## metrics that function regr_metrics() should return in model selection phase
 params3$metrics.MA <- c("xmean", "xrangemin", "xrangemax", "xstdev", "ymean", "yrangemin", "yrangemax", "ystdev", "rsq", "rmsd", "rmsdpct", "ac_uns", "ac_sys", "bias")  ## metrics that function regr_metrics() should return in model assessment phase
@@ -137,7 +136,7 @@ params3$targ.units.plots <- list("m", "m", "", "m", "%", "%", "m", "m^2/ha", "m^
 
 ## retained 5 classes: 0="No change", 1="Fire", 2="Harvesting", 3="Non-stand replacing", 4="Infrastructure"
 params3$Ch_attr.classes <- c("No change", "Fire", "Harvesting", "Non-stand replacing", "Infrastructure")
-params3$Ch_attr.labels <- c(0, 1, 2, 3)  ## no "Infrastructure" bc there are too few points
+params3$Ch_attr.labels <- c(0, 1, 2, 3, 4)  ## no "Infrastructure" bc there are too few points
 
 params3$groups.to.plot <- list('Bands', 'TCcomps_VI', 'ChangeAttribution', 'Years_Topo_Coords')  ## to plot relation with key response vars separately (and in a visually pleasing way)
 
@@ -850,6 +849,26 @@ if (params3$run.MA) {  ## run this block only if you want to (re)run the actual 
 
       ## impute IDs (same as for model selection phase)
       newtargets.output <- newtargets(yai.rf, X.val[,predictors], k=1)
+      
+      # ## ------- TODEL ---
+      # ## TEST IF ANN PARAMETER HAS IMPACT
+      # temp.toc <- proc.time()-temp.tic[3]
+      # print(paste("usual elapsed time:", seconds_to_period(temp.toc[3])))
+      # print(paste("usual Yai obj size:", object.size(yai.rf)))
+      # print(paste("usual newtargets.output obj size:", object.size(newtargets.output)))
+      # 
+      # temp.tic <- proc.time()
+      # set.seed(paramsGL$global.seed)
+      # yai.rf.ANN <- yai( x=X.trn[,predictors], y=Y.trn[,unlist(params3$targ.yaImp.names.lg)], bootstrap=F, method="randomForest", rfMode="regression", k=1, ntree=params3$ntree.MA*length(params3$targ.yaImp.names.lg), mtry=mtries, ann=T)
+      # newtargets.output.ANN <- newtargets(yai.rf.ANN, X.val[,predictors], k=1, ann=T)
+      # ids.val.predicted.ANN <- newtargets.output.ANN$neiIdsTrgs
+      # 
+      # temp.toc <- proc.time()-temp.tic[3]
+      # print(paste("with ANN elapsed time:", seconds_to_period(temp.toc[3])))
+      # print(paste("with ANN Yai obj size:", object.size(yai.rf.ANN)))
+      # print(paste("with ANN newtargets.output obj size:", object.size(newtargets.output.ANN)))
+      # ## ------- TODEL ---
+      
       ids.val.predicted <- newtargets.output$neiIdsTrgs
       ids.val.predicted <- rownames_2_FCID(ids.val.predicted)
       colnames(ids.val.predicted)[2] <- "Predicted_FCID"
@@ -877,7 +896,7 @@ if (params3$run.MA) {  ## run this block only if you want to (re)run the actual 
     
     }
   
-  }
+  }  ## end for on params3$methods
 
 } else {  ## ...if we did not run the model assessment, read the csv with the predictions that we saved beforehand
   
@@ -889,19 +908,24 @@ if (params3$run.MA) {  ## run this block only if you want to (re)run the actual 
       }
       if (method == "YAI") {
         Y.val.predicted.Yai <- read.csv(file.path(base_results_dir, sprintf("Y_val_predicted_matrix_YAI.csv"), fsep = .Platform$file.sep), row.names=1)
-        ## TO COMMENT
-        Y.val.predicted.Yai[, "total_biomass"] <- Y.val.predicted.Yai[, "total_biomass"]/1000
-        ## TO COMMENT
       }
     }
   }
   
-}
+}  ## end if-else on params3$run.MA
 
 #### STATS AND GRAPHS ---------------------------------------------------------------
 
 if (params3$run.SG) {  ## only run this block if we want to run this STATS AND GRAPHS part
 
+  ## if it doesn't already exist, create folder to save bivariate check plots
+  BivCheck.CAN.subdir <- file.path(Assess.CAN.subdir, "Bivariate_check", sep='')  
+  if (! file.exists(BivCheck.CAN.subdir)){dir.create(BivCheck.CAN.subdir, showWarnings = F, recursive = T)}
+  
+  ## same for residuals plots
+  Resid.subdir <- file.path(Assess.CAN.subdir, "Residuals", sep='')  
+  if (! file.exists(Resid.subdir)){dir.create(Resid.subdir, showWarnings = F, recursive = T)}
+  
   for (method in params3$methods) {  ## again go over the list of methods...
   
     if (method == "RF") {
@@ -1035,7 +1059,7 @@ if (params3$run.SG) {  ## only run this block if we want to run this STATS AND G
         my.hist.lims <- c(min(temp.df$resid), max(temp.df$resid))  
         my.breaks <- c( seq(min(temp.df$resid), max(temp.df$resid), l=params3$nr.of.bins.ecoz+1) )
       }
-      str <- file.path(Assess.CAN.subdir, sprintf("ResidualsHist_%s_%s.pdf", method, targ), sep='')
+      str <- file.path(Resid.subdir, sprintf("ResidualsHist_%s_%s.pdf", method, targ), sep='')
       pdf(str)
       par(mfrow=c(3,3), oma = c(5,4,2,2) + 0.1, mar = c(2,2,2,2) + 0.1)  ## parameters to arrange nicely the panel of plots
       for (z in 1:length(params3$sampled.ecozones)) {
@@ -1047,7 +1071,7 @@ if (params3$run.SG) {  ## only run this block if we want to run this STATS AND G
       dev.off()
       
       ## scatterplots of predicted values (now this is the x-axis) VS residuals at CAN level
-      fig.name.str <- file.path(Assess.CAN.subdir, sprintf("ResidPred_scatter_%s_%s.pdf", method, targ), sep='')
+      fig.name.str <- file.path(Resid.subdir, sprintf("ResidPred_scatter_%s_%s.pdf", method, targ), sep='')
       title.str <- sprintf("%s [%s]: ", params3$targ.names.plots[idx.targ], params3$targ.units.plots[idx.targ])
       pdf(fig.name.str)
         theme_set(theme_gray(base_size = 18))
@@ -1058,7 +1082,7 @@ if (params3$run.SG) {  ## only run this block if we want to run this STATS AND G
       
       idx.targ <- idx.targ+1
       
-    }
+    }   ## end for targ in params3$targ.names.lg
 
 #### PLOT VARIABLE IMPORTANCE ---------------------------------------------------------------
     
@@ -1130,7 +1154,7 @@ if (params3$run.SG) {  ## only run this block if we want to run this STATS AND G
       for ( idx.targ in which(!unlist(params3$targ.names.sh) %in% "el_p95") ) {   ## loop over the rest of the resp. variables
         cmd <- sprintf("y.axis.var <- results.shp.df@data$O_%s", params3$targ.names.sh[idx.targ])   ## set as y-axis the other observed resp. variable
         eval(parse(text=cmd))
-        fig.name.str <- file.path(Assess.CAN.subdir, sprintf("Bivariate_ObsObs_scatter_elevp95_vs_%s.pdf", params3$targ.names.sh[idx.targ]), sep='')
+        fig.name.str <- file.path(BivCheck.CAN.subdir, sprintf("Bivariate_ObsObs_scatter_elevp95_vs_%s.pdf", params3$targ.names.sh[idx.targ]), sep='')
         pdf(fig.name.str)
           theme_set(theme_gray(base_size = 18))
           plot.to.print <- plot_colorByDensity(x.axis.var, y.axis.var, xlab="obs. elev_p95 [m]", ylab=sprintf("obs. %s [%s]", params3$targ.names.plots[idx.targ], params3$targ.units.plots[idx.targ]), main=sprintf("R=%.3f", cor(x.axis.var, y.axis.var)))  ## add simple correlation 
@@ -1144,7 +1168,7 @@ if (params3$run.SG) {  ## only run this block if we want to run this STATS AND G
     for ( idx.targ in which(!unlist(params3$targ.names.sh) %in% "el_p95") ) {
       cmd <- sprintf("y.axis.var <- results.shp.df@data$P_%s", params3$targ.names.sh[idx.targ])  ## set as y-axis the other predicted resp. variable
       eval(parse(text=cmd))
-      fig.name.str <- file.path(Assess.CAN.subdir, sprintf("Bivariate_ObsPred_scatter_elevp95_vs_%s_%s.pdf", params3$targ.names.sh[idx.targ], method), sep='')
+      fig.name.str <- file.path(BivCheck.CAN.subdir, sprintf("Bivariate_ObsPred_scatter_elevp95_vs_%s_%s.pdf", params3$targ.names.sh[idx.targ], method), sep='')
       pdf(fig.name.str)
         theme_set(theme_gray(base_size = 18))
         plot.to.print <- plot_colorByDensity(x.axis.var, y.axis.var, xlab="obs. elev_p95 [m]", ylab=sprintf("pred. %s [%s]", params3$targ.names.plots[idx.targ], params3$targ.units.plots[idx.targ]), main=sprintf("R=%.3f", cor(x.axis.var, y.axis.var)))
@@ -1157,7 +1181,7 @@ if (params3$run.SG) {  ## only run this block if we want to run this STATS AND G
     for ( idx.targ in which(!unlist(params3$targ.names.sh) %in% "el_p95") ) {
       cmd <- sprintf("y.axis.var <- results.shp.df@data$P_%s", params3$targ.names.sh[idx.targ])  ## set as y-axis the other predicted resp. variable
       eval(parse(text=cmd))
-      fig.name.str <- file.path(Assess.CAN.subdir, sprintf("Bivariate_PredPred_scatter_elevp95_vs_%s_%s.pdf", params3$targ.names.sh[idx.targ], method), sep='')
+      fig.name.str <- file.path(BivCheck.CAN.subdir, sprintf("Bivariate_PredPred_scatter_elevp95_vs_%s_%s.pdf", params3$targ.names.sh[idx.targ], method), sep='')
       pdf(fig.name.str)
         theme_set(theme_gray(base_size = 18))
         plot.to.print <- plot_colorByDensity(x.axis.var, y.axis.var, xlab="pred. elev_p95 [m]", ylab=sprintf("pred. %s [%s]", params3$targ.names.plots[idx.targ], params3$targ.units.plots[idx.targ]), main=sprintf("R=%.3f", cor(x.axis.var, y.axis.var)))
@@ -1179,7 +1203,7 @@ if (params3$run.SG) {  ## only run this block if we want to run this STATS AND G
         lims.table.x[idx.targ, ] <- c(quantile(x.axis.var, 0.0001, names=F), quantile(x.axis.var, 0.9999, names=F))
         lims.table.y[idx.targ, ] <- c(quantile(y.axis.var, 0.0001, names=F), quantile(y.axis.var, 0.9999, names=F))
       }
-      fig.name.str <- file.path(Assess.CAN.subdir, sprintf("Bivariate_ResidResid_scatter_elevp95_vs_%s_%s.pdf", params3$targ.names.sh[idx.targ], method), sep='')
+      fig.name.str <- file.path(BivCheck.CAN.subdir, sprintf("Bivariate_ResidResid_scatter_elevp95_vs_%s_%s.pdf", params3$targ.names.sh[idx.targ], method), sep='')
       pdf(fig.name.str)
         theme_set(theme_gray(base_size = 18))
         plot.to.print <- plot_colorByDensity(x.axis.var, y.axis.var, xlim=lims.table.x[idx.targ, ], ylim=lims.table.y[idx.targ, ], xlab="resid. elev_p95 [m]", ylab=sprintf("resid. %s [%s]", params3$targ.names.plots[idx.targ], params3$targ.units.plots[idx.targ]), main=sprintf("R=%.3f", cor(x.axis.var, y.axis.var)))
@@ -1190,7 +1214,8 @@ if (params3$run.SG) {  ## only run this block if we want to run this STATS AND G
       dev.off()
     }
 
-    ## correlation and corr difference matrices for observed/predicted values on validation set
+    ## Correlation and corr difference matrices for observed/predicted values on validation set
+    
     if (method == params3$methods[1]) {  ## compute observed correlation matrix only once
       obs.data.matrix <- results.shp.df@data[ , seq(1,ncol(results.shp.df)-3,3)]  ## select every 3rd column until 3rd to last column to only use observed and predicted values
       colnames(obs.data.matrix) <- params3$targ.names.plots
@@ -1326,12 +1351,12 @@ if (params3$run.SG) {  ## only run this block if we want to run this STATS AND G
     print(barplot)
     dev.off()
   
-  }
+  }  ## end for method in params3$methods
   
   stats.file = file.path(base_results_dir, 'stats3.Rdata', fsep = .Platform$file.sep) 
   save(stats3, file = stats.file)
 
-}
+}  ## end if params3$run.SG
 
 #### PRINT LOGS ---------------------------------------------------------
 
