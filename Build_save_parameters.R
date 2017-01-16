@@ -1,8 +1,6 @@
-#### CODE INFOS ------------------------------------------------------------
-
 ## Project Name: NationalImputationForestAttributes
 ## Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hoabart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
-## File Name:                          
+## File Name: Build_save_parameters.R                         
 ## Objective: A central repository for all global variables
 
 #### TO DO -------------------------------------------------------------------

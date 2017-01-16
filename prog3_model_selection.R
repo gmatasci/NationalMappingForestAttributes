@@ -1,8 +1,8 @@
 #### CODE INFOS -------------------------------------------------------------------
 
-## Project Name: NationalImputationForestAttributes
+## Project Name: NationalMappingForestAttributes
 ## Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hoabart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
-## File Name:                            
+## File Name: prog3_model_selection.R                           
 ## Objective: Descriptive statistics and plots, variable selection and Random Forest prediction/imputation
 
 #### TO DO -------------------------------------------------------------------
@@ -80,7 +80,7 @@ load(param_file)
 param_file_prog2 = file.path(base_wkg_dir, 'AllUTMzones_params2.Rdata', fsep = .Platform$file.sep) 
 load(param_file_prog2)
 
-source("D:/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR_NationalMappingForestAttributes/code/Functions_NatImp.R")
+source("D:/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR_NationalMappingForestAttributes/code/Functions_NatMapping_R.R")
 
 ## subdirectory to save model assessment plots
 Assess.CAN.subdir <- file.path(base_figures_dir, "Assessment_CAN_level", fsep = .Platform$file.sep)
@@ -91,12 +91,16 @@ if (! file.exists(Assess.CAN.subdir)){dir.create(Assess.CAN.subdir, showWarnings
 params3 <- list()
 
 ## Actual parameters to be used
-params3$subsetting <- T  ## to subset the dataset to a nr of samples = params3$nr.pts.plot (for debugging in development phase)
+params3$subsetting <- F   ## to subset the dataset to a nr of samples = params3$nr.pts.plot (for debugging in development phase)
+
+params3$filterCC <- F    ## whether to filter the datasets wrt canopy cover 
+params3$filterCC.thresh <- 10     ## thereshold on canopy cover pct to use
+
 params3$methods <- list("YAI") ## accepts "RF" and/or "YAI", used to run analyses only for the specified methods
 params3$run.checks <- F   ## whether to run checks for duplicate FCIDs, run only once, as of 06/06/2016 all is OK
 params3$run.descr.stats <- F  ## whether to run descriptive stats block
 params3$run.MS <- F     ## whether to run model selection block
-params3$run.MA <- T    ## whether to run model assessment block (if set to FALSE, the script loads the prediction files saved in the last run in base_results_dir, to be used to change the plots based on the same results though)
+params3$run.MA <- F    ## whether to run model assessment block (if set to FALSE, the script loads the prediction files saved in the last run in base_results_dir, to be used to change the plots based on the same results though)
 params3$run.SG <- T    ## whether to run stats & graphs block
 params3$parallel.RF.MS <- T    ## whether to run RF in parallel in the model selection block
 params3$parallel.RF.MA <- F     ## whether to run RF in parallel in the model assessment block (variable importance is not available after having run the RF in parallel, so is set to FALSE) 
@@ -112,7 +116,7 @@ params3$plot.importance <- T   ## wheter to plot RF variable importance values
 params3$predictor.groups <- list("Rthresh_0p95", "Rthresh_0p95_no_coords")   ## in model selection phase: list of predictors to include in the datasets for training and prediction
 # params3$predictor.groups <- list("all", "SKstudy", "Rthresh_0p8", "Rthresh_0p95", "Rthresh_0p9_no_coords", "Rthresh_0p9_no_change", "Rthresh_0p9")  ## those used in a preceding exploratory analysis
 params3$best.predictor.group <- "Rthresh_0p95"   ## in model assessment phase: final list of predictors
-params3$predictors.to.rem.prior.know <- c('b1', 'b2', 'b3', 'b4', 'b5', 'b7', 'NDVI', 'Lat', 'Long')  ## list of predictors to remove a priori: all of the raw spectral bands (only removing VIS bands here results in the same set as b4, b5 and b7 are then filtered out based on |R|) and the NDVI (saturation issues)
+params3$predictors.to.rem.prior.know <- c('b1', 'b2', 'b3', 'b4', 'b5', 'b7', 'NDVI')  ## list of predictors to remove a priori: all of the raw spectral bands (only removing VIS bands here results in the same set as b4, b5 and b7 are then filtered out based on |R|) and the NDVI (saturation issues)
 
 params3$metrics.MS <- "rsq"    ## metrics that function regr_metrics() should return in model selection phase
 params3$metrics.MA <- c("xmean", "xrangemin", "xrangemax", "xstdev", "ymean", "yrangemin", "yrangemax", "ystdev", "rsq", "rmsd", "rmsdpct", "ac_uns", "ac_sys", "bias")  ## metrics that function regr_metrics() should return in model assessment phase
@@ -264,6 +268,19 @@ idx.Subhumid.Prairies <- Y.trn.val$ECOZONE == "Subhumid Prairies"
 Y.trn.val <- Y.trn.val[!idx.Subhumid.Prairies, ]
 X.trn.val <- X.trn.val[!idx.Subhumid.Prairies, ]
 Y.trn.val$ECOZONE <- factor(Y.trn.val$ECOZONE)  ## to drop the level we just removed
+
+## filter wrt canopy cover
+if (params3$filterCC) {
+  FCIDs.to.keep <- Y.trn.val %>% filter(percentage_first_returns_above_2m > params3$filterCC.thresh) %>% select(FCID)
+  Y.trn.val <- Y.trn.val %>% filter(FCID %in% FCIDs.to.keep$FCID)
+  X.trn.val <- X.trn.val %>% filter(FCID %in% FCIDs.to.keep$FCID)
+  write.csv(X.trn.val, file = file.path(base_wkg_dir, sprintf("X_trn_val_filtr_cc%spct.csv", params3$filterCC.thresh), sep = ''))
+  write.csv(Y.trn.val, file = file.path(base_wkg_dir, sprintf("Y_trn_val_filtr_cc%spct.csv", params3$filterCC.thresh), sep = ''))
+} else {
+  ## Write final filtered datasets
+  write.csv(X.trn.val, file = file.path(base_wkg_dir, "X_trn_val.csv", sep = ''))
+  write.csv(Y.trn.val, file = file.path(base_wkg_dir, "Y_trn_val.csv", sep = ''))
+}
 
 ## save stats about removed samples and nr of sample from each Ecozone, UTM zone and Ch_attr
 stats3 <- list()
@@ -840,12 +857,11 @@ if (params3$run.MA) {  ## run this block only if you want to (re)run the actual 
       ## - params3$ntree.MS*length(params3$targ.yaImp.names.lg) bc each Y uses a number of trees equal to ntree/nr.Ys
       yai.rf <- yai( x=X.trn[,predictors], y=Y.trn[,unlist(params3$targ.yaImp.names.lg)], bootstrap=F, method="randomForest", rfMode="regression", k=1, ntree=params3$ntree.MA*length(params3$targ.yaImp.names.lg), mtry=mtries)
       
-      ## variable importance plot: commented because it is not clear how it is computed for imputation
-      # Yai.var.imp <- yaiVarImp(yai.rf, nTop =0, plot=F)
-      # par(las=1)
-      # par(mar=c(4,15,1,1))
-      #   boxplot(Yai.var.imp, horizontal = TRUE, xlab = "Scaled Variable Importance")
-      # dev.off()
+      ## variable importance plot: When method randomforest is used to build a yai object, the randomForest package computes
+      # variable importance scores. The prediction error on the out-of-bag portion of the data is recorded (MSE for regression), then the same is done after permuting
+      # each predictor variable. The difference between the two are then averaged over all trees, and normalized by the standard deviation of the differences (scale=T). 
+      # Then, for each response variable, the scores of all the predictors are standardized to have 0 mean and std dev 1. 
+      Yai.var.imp <- yaiVarImp(yai.rf, plot=F)
 
       ## impute IDs (same as for model selection phase)
       newtargets.output <- newtargets(yai.rf, X.val[,predictors], k=1)
@@ -1088,28 +1104,74 @@ if (params3$run.SG) {  ## only run this block if we want to run this STATS AND G
     
     if (params3$plot.importance) {  ## run only if specified in params3$plot.importance and only for RF
       
-      rownames(var.imp.df) <- params3$targ.names.plots
+      if (method == "RF") {
+       
+        rownames(var.imp.df) <- params3$targ.names.plots
+        
+        ## overall boxplot over the 10 targets
+        fig.name.str <- file.path(Assess.CAN.subdir, sprintf("RF_VariableImportance_IncMSE_overall.pdf"), sep='')
+        pdf(fig.name.str)
+          mar.default <- c(5,4,4,2) + 0.1
+          par(mar = mar.default + c(0, 4, 0, 0)) 
+          theme_set(theme_gray(base_size = 18))
+          medians <- sapply(var.imp.df, median)  ## compute median values
+          idx.medians <- order(medians, decreasing=T)   ## sort by decreasing median value
+          boxpl <- boxplot(var.imp.df[, idx.medians], horizontal = TRUE, xlab = "Scaled Variable Importance (% incr. MSE)", las=1)
+        print(boxpl)
+        dev.off()
+        
+        ## heatmap by target
+        fig.name.str <- file.path(Assess.CAN.subdir, sprintf("RF_VariableImportance_IncMSE_byTarg.pdf"), sep='')
+        pdf(fig.name.str)
+          mar.default <- c(5,4,4,2) + 0.1
+          par(mar = mar.default + c(0, 4, 0, 0)) 
+          theme_set(theme_gray(base_size = 18))
+          my_palette <- colorRampPalette(c("white", "dark green"))(n = 20)
+          var.imp.df.to.plot <- round(as.matrix(var.imp.df[, idx.medians]), 1)  ## sort by descending median value
+          heatmap.2(var.imp.df.to.plot,
+                    cellnote = var.imp.df.to.plot,  # same data set for cell labels
+                    notecol="black",      # change font color of cell labels to black
+                    density.info="none",  # turns off density plot inside color legend
+                    trace="none",         # turns off trace lines inside the heat map
+                    margins =c(9,9),
+                    col=my_palette,       # use on color palette defined earlier
+                    key=TRUE, 
+                    key.title="", 
+                    key.xlab="Scaled Variable Importance (% incr. MSE)",
+                    lmat=rbind(c(2,3), c(0,1), c(0,4)),
+                    lwid=c(1.5, 4),
+                    lhei=c(1.5, 4, 1.2),
+                    dendrogram="none",     # only draw a row dendrogram
+                    Rowv=F,
+                    Colv=F
+                    )   
+        print(boxpl)
+        dev.off()
       
-      ## overall boxplot over the 10 targets
-      fig.name.str <- file.path(Assess.CAN.subdir, sprintf("RF_VariableImportance_IncMSE_overall.pdf"), sep='')
-      pdf(fig.name.str)
-        mar.default <- c(5,4,4,2) + 0.1
-        par(mar = mar.default + c(0, 4, 0, 0)) 
-        theme_set(theme_gray(base_size = 18))
-        medians <- sapply(var.imp.df, median)  ## compute median values
-        idx.medians <- order(medians, decreasing=T)   ## sort by decreasing median value
-        boxpl <- boxplot(var.imp.df[, idx.medians], horizontal = TRUE, xlab = "Scaled Variable Importance (% incr. MSE)", las=2)
-      print(boxpl)
-      dev.off()
+      } else if (method == "YAI") { 
       
-      ## heatmap by target
-      fig.name.str <- file.path(Assess.CAN.subdir, sprintf("RF_VariableImportance_IncMSE_byTarg.pdf"), sep='')
-      pdf(fig.name.str)
+        rownames(Yai.var.imp) <- params3$targ.names.plots[1:length(params3$targ.yaImp.names.sh)]
+        
+        ## overall boxplot over the 10 targets
+        fig.name.str <- file.path(Assess.CAN.subdir, sprintf("YAI_VariableImportance_IncMSE_overall.pdf"), sep='')
+        pdf(fig.name.str)
+          mar.default <- c(5,4,4,2) + 0.1
+          par(mar = mar.default + c(0, 4, 0, 0)) 
+          theme_set(theme_gray(base_size = 18))
+          medians <- sapply(Yai.var.imp, median)  ## compute median values
+          idx.medians <- order(medians, decreasing=T)   ## sort by decreasing median value
+          boxpl <- boxplot(Yai.var.imp[, idx.medians], horizontal = TRUE, xlab = "Standardized scaled Variable Importance (% incr. MSE)", las=1)
+          print(boxpl)
+        dev.off()
+        
+        ## heatmap by target
+        fig.name.str <- file.path(Assess.CAN.subdir, sprintf("YAI_VariableImportance_IncMSE_byTarg.pdf"), sep='')
+        pdf(fig.name.str)
         mar.default <- c(5,4,4,2) + 0.1
         par(mar = mar.default + c(0, 4, 0, 0)) 
         theme_set(theme_gray(base_size = 18))
         my_palette <- colorRampPalette(c("white", "dark green"))(n = 20)
-        var.imp.df.to.plot <- round(as.matrix(var.imp.df[, idx.medians]), 1)  ## sort by descending median value
+        var.imp.df.to.plot <- round(as.matrix(Yai.var.imp[, idx.medians]), 1)  ## sort by descending median value
         heatmap.2(var.imp.df.to.plot,
                   cellnote = var.imp.df.to.plot,  # same data set for cell labels
                   notecol="black",      # change font color of cell labels to black
@@ -1119,17 +1181,18 @@ if (params3$run.SG) {  ## only run this block if we want to run this STATS AND G
                   col=my_palette,       # use on color palette defined earlier
                   key=TRUE, 
                   key.title="", 
-                  key.xlab="Scaled Variable Importance (% incr. MSE)",
+                  key.xlab="Standardized scaled Variable Importance (% incr. MSE)",
                   lmat=rbind(c(2,3), c(0,1), c(0,4)),
                   lwid=c(1.5, 4),
                   lhei=c(1.5, 4, 1.2),
                   dendrogram="none",     # only draw a row dendrogram
                   Rowv=F,
                   Colv=F
-                  )   
-      print(boxpl)
-      dev.off()
-      
+        )   
+        print(boxpl)
+        dev.off()
+        
+      }
     }
     
     

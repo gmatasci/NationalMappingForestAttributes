@@ -2,9 +2,8 @@
 
 ## Project Name: NationalImputationForestAttributes
 ## Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hoabart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
-## File Name:                              
-## Objective: Explanatory variable extraction
-##            Extract values for all explanatory rasters spatially coincident with sampled lidar plot polygons for both training and validation plots
+## File Name: prog2_lidar_plots_footprint_extract_exvars.R                             
+## Objective: Extract values for all explanatory rasters spatially coincident with sampled lidar plot polygons for both training and validation plots
 ##            Mean plot level values of explanatory variables is weighted average based on relative proportion of each pixel within the polygon (normalized weights)
 
 #### TO DO -------------------------------------------------------------------
@@ -82,7 +81,7 @@ rm(list=ls()) ## clear all variables
 param_file = "D:/Research/ANALYSES/NationalImputationForestAttributes/BAP_Imputation_working/wkg/AllUTMzones_paramsGL.Rdata"
 load(param_file)
 
-source("Functions_NatImp.R")
+source("D:/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR_NationalMappingForestAttributes/code/Functions_NatMapping_R.R")
 
 #### SCRIPT SPECIFIC PARAMETERS -------------------------------------------
 

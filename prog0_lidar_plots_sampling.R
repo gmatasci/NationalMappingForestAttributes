@@ -2,7 +2,7 @@
 
 ## Project Name: NationalImputationForestAttributes
 ## Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hoabart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
-## File Name:                           
+## File Name: prog0_lidar_plots_sampling.R                          
 ## Objective: Define sampling grid over LiDAR transect
 
 #### TO DO -------------------------------------------------------------------

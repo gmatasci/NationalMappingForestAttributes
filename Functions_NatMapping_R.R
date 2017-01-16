@@ -1,9 +1,7 @@
-#### CODE INFOS -------------------------------------------------------------------
-
 ## Project Name: NationalImputationForestAttributes
 ## Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hoabart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
-## File Name: Functions_NatImp.R                            
-## Objective: Function repository to be sourced by the different scripts.
+## File Name: Functions_NatMapping_R.R                            
+## Objective: Define R functions to make available to all R scripts
 
 #### copy_paste_UTMdata -----------------------------------------------------------
 ## copy/paste UTM zone data (NTEMS folder structure) from external HDD to a local directory
@@ -205,7 +203,7 @@ regr_metrics <- function(x,y) {
     ymean<-sum(y)/n								
     xrange<-range(x)            #range values of x and y;
     yrange<-range(y)
-    xstdev<-sd(x)          #standard devaition values for x and y;
+    xstdev<-sd(x)          #standard deviation values for x and y;
     ystdev<-sd(y)
     s_xx<-sum((x-xmean)^2)	
     s_yy<-sum((y-ymean)^2) 
@@ -379,4 +377,15 @@ plot_colorByDensity <- function(x1,x2, xlim=c(min(x1),max(x1)), ylim=c(min(x2),m
           panel.border = element_rect(colour = "gray", fill=NA)) +
     xlim(xlim) + ylim(ylim)
   return(plot.obj)
+}
+
+#### maps_int_2_contin -----------------------------------------------------------
+## convert map integers to continuous values through the multipliers
+maps_int_2_contin <- function(integer.dt, multipl) {
+  contin.df <- data.frame(matrix(nrow=nrow(integer.dt), ncol=ncol(integer.dt)))
+  colnames(contin.df) <- colnames(integer.dt)
+  for (i in 1:length(multipl)) {
+    contin.df[, i] <- integer.dt[, i, with=FALSE]/multipl[[i]]
+  }
+  return(as.data.table(contin.df)) 
 }

@@ -1,9 +1,10 @@
-# -*- coding: utf-8 -*-
 """
-Created on Fri Jul 15 18:38:32 2016
+Project Name: NationalImputationForestAttributes
+Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hoabart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
+File Name: mergeTransects.py                        
+Objective: Merge into a single shp all the individual shps containing the transects in each UTM zone
+"""
 
-@author: gmatasci
-"""
 import arcpy.mapping, sys, os, glob, fnmatch
 
 from arcpy import env
