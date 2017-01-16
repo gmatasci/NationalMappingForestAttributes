@@ -1,5 +1,3 @@
-#### CODE INFOS -------------------------------------------------------------------
-
 ## Project Name: NationalImputationForestAttributes
 ## Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hoabart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
 ## File Name: prog2_lidar_plots_footprint_extract_exvars.R                             

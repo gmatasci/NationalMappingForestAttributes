@@ -1,8 +1,6 @@
-#### CODE INFOS ---------------------------------------------------------------
-
 ## Project Name: NationalImputationForestAttributes
 ## Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hoabart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
-## File Name:                              
+## File Name: prog0a_check_LiDARdata_row_duplicates.R                             
 ## Objective: Check for row duplicates in all LiDAR csv files for all UTM zones
 
 #### TO DO -------------------------------------------------------------------

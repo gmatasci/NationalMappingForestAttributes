@@ -1,5 +1,3 @@
-#### CODE INFOS -------------------------------------------------------------------
-
 ## Project Name: NationalMappingForestAttributes
 ## Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hoabart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
 ## File Name: prog4_check_maps.R                            

@@ -1,8 +1,6 @@
-#### CODE INFOS -------------------------------------------------------------------
-
 ## Project Name: NationalImputationForestAttributes
 ## Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hoabart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
-## File Name: prog1_training_validation_selection                          
+## File Name: prog1_training_validation_selection.R                          
 ## Objective: LiDAR training and validation plot selection
 ##            Merge lidar metrics and derived forest attributes 
 ##            Remove plots will high variablilty of vegetion height to avoid plots with mixed conditions
