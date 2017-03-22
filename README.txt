@@ -12,13 +12,17 @@
 
 - Functions_NatMapping_R.R: Define R functions to make available to all R scripts
 
-- mergeTransects.py: Merge into a single shp all the individual shps containing the transects in each UTM zone
+- merge_transects.py: Merge into a single shp all the individual shps containing the transects in each UTM zone
 
 - prog0_lidar_plots_sampling.R: Define sampling grid over LiDAR transect
 
 - prog0a_check_LiDARdata_row_duplicates.R: Check for row duplicates in all LiDAR csv files for all UTM zones
 
+- prog0b_create_shp_from_csv.R: Create shp from CSV files and save new CSV files (lidar and forest attributes) with new unique_id for new LiDAR data from BC
+
 - prog1_training_validation_selection.R: LiDAR training and validation plot selection
+
+- prog1a_volume_biomass_check_recompute.R: check the issue with incoherence of Vol and Biomass values between Boreal/Non-boreal ecozones. Wrong equations have been used and this script recomputes the correct values on the transect for these 2 attributes.
 
 - prog2_lidar_plots_footprint_extract_exvars.R: Extract values for all explanatory rasters spatially coincident with sampled lidar plot polygons for both training and validation plots
 

@@ -1,5 +1,5 @@
-## Project Name: NationalImputationForestAttributes
-## Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hoabart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
+## Project Name: NationalMappingForestAttributes
+## Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hobart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
 ## File Name: Build_save_parameters.R                         
 ## Objective: A central repository for all global variables
 
@@ -19,10 +19,7 @@ rm(list=ls())
 
 paramsGL <- list()
 paramsGL$zones <- c('UTM8N', 'UTM9N', 'UTM9S', 'UTM10N', 'UTM10S', 'UTM11N', 'UTM12N', 'UTM12S', 'UTM13S','UTM14S','UTM15S', 'UTM16S' ,'UTM17S', 'UTM18S' ,'UTM19S' ,'UTM20S' ,'UTM21S')
-# paramsGL$zones <- c('UTM12S', 'UTM13S', 'UTM14S')
-# paramsGL$zones <- c('UTM13S')
-# paramsGL$zones <- c('UTM9S', 'UTM12N', 'UTM13S', 'UTM20S')
-# paramsGL$zones <- c('UTM12N', 'UTM9S')
+# paramsGL$zones <- c('UTM10N', 'UTM10S')
 paramsGL$TARGET_YEAR <- 2010
 paramsGL$global.seed <- 2010  ## to have the same initialization for any random process
 paramsGL$unit.size <- 25   ## use 75 to have Harold's original setting
@@ -48,12 +45,3 @@ param_file = file.path(base_wkg_dir, 'AllUTMzones_paramsGL.Rdata', fsep = .Platf
 save(paramsGL, base_dir, data_dir, LOP_dir, Landsat_dir, topo_dir, base_results_dir, base_figures_dir, base_wkg_dir, file = param_file)
 print(param_file)
 
-#### RUN FULL WORKFLOW ------------------------------------------------------------
-
-## To run the entire workflow at once: not working yet!
-#  source('D:/Research/ANALYSES/NationalImputationForestAttributes/BAP_Imputation_working/scripts_NationalImputationForestAttributes/prog0a_check_LiDARdata_row_duplicates.R')
-#  source('D:/Research/ANALYSES/NationalImputationForestAttributes/BAP_Imputation_working/scripts_NationalImputationForestAttributes/prog0_lidar_plots_sampling_auto_GM.R')
-#  source('D:/Research/ANALYSES/NationalImputationForestAttributes/BAP_Imputation_working/scripts_NationalImputationForestAttributes/prog1_training_validation_selection_auto_GM.R')
-#  source('D:/Research/ANALYSES/NationalImputationForestAttributes/BAP_Imputation_working/scripts_NationalImputationForestAttributes/prog2_lidar_plots_footprint_extract_exvars_auto_GM.R')
-#  source('D:/Research/ANALYSES/NationalImputationForestAttributes/BAP_Imputation_working/scripts_NationalImputationForestAttributes/prog3_rf_gnn_models_auto_GM.R')
-#  source('D:/Research/ANALYSES/NationalImputationForestAttributes/BAP_Imputation_working/scripts_NationalImputationForestAttributes/prog4_impute_the_whole_enclilada_auto_GM.R')

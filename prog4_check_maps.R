@@ -1,5 +1,5 @@
 ## Project Name: NationalMappingForestAttributes
-## Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hoabart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
+## Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hobart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
 ## File Name: prog4_check_maps.R                            
 ## Objective: Check that predicted values on maps match those predicted on plots
 
@@ -14,7 +14,6 @@
 # - check script for new boxplots v3
 # - check influence of rasterOptions(maxmemory = 1e+09), rasterOptions(chunksize = 1e+08)
 
-
 ## SOLVED:
 # -V change back and remove _v2 -- now we have separate folders for each version of the csvs
 # -V save separate correlation trends plots -- plots are now produced
@@ -23,11 +22,10 @@
 #### READS/WRITES ------------------------------------------------------------
 
 ## READS:
-# - "<UTMzone>_pt_centerpt_training_validation.shp": (from prog1) point shp with centerpoints of selected polygons
-# - "<UTMzone>_poly_training_validation.shp": (from prog1) polygon shp with selected polygons (after recheck for 9-plots/polyg after subsetting wrt availability of both LiDAR and forest attributes)
+# - 
 
 ## WRITES:
-# - "poly_training_validation_exvars_extract.csv": (for prog3a and prog3) csv table with explanatory variables (X) for selected TRN and VAL samples (3x3 plots or single plot polygons with weighted average pixels values)
+# - 
 
 #### INIT --------------------------------------------------------------------
 

@@ -1,5 +1,5 @@
 ## Project Name: NationalMappingForestAttributes
-## Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hoabart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
+## Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hobart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
 ## File Name: prog5_ecozone_stats_plots.R                           
 ## Objective: Produce boxplots based on the descriptive stats extracted with 'prog5_ecozone_stats.py'
 
@@ -40,19 +40,22 @@ source("D:/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR_NationalMap
 
 #### SCRIPT SPECIFIC PARAMETERS ---------------------------------------------
 
-params4c <- list()
+params5 <- list()
 
-params4c$stats.vect <- c('mean', '10%', '25%', '50%', '75%', '90%')
+params5$stats.vect <- c('mean', '10%', '25%', '50%', '75%', '90%')
 
-# params4c$targ.names.lg <- list("elev_mean", "elev_stddev", "elev_cv", "elev_p95", "percentage_first_returns_above_2m", "percentage_first_returns_above_mean", "loreys_height", "basal_area", "gross_stem_volume", "total_biomass")
-params4c$targ.names.lg <- list("gross_stem_volume", "total_biomass")
+# params5$targ.names.lg <- list("elev_mean", "elev_stddev", "elev_cv", "elev_p95", "percentage_first_returns_above_2m", "percentage_first_returns_above_mean", "loreys_height", "basal_area", "gross_stem_volume", "total_biomass")
+params5$targ.names.lg <- list("gross_stem_volume", "total_biomass")
 
-params4c$ylims <- list(c(0, 135), c(0, 270))
+params5$ylims <- list(c(0, 135), c(0, 270))
 
-params4c$fill.color.vect <- c('chocolate1', 'olivedrab1')
-params4c$mapped.ecozones <- list("Boreal Cordillera", "Boreal Plains", "Boreal Shield East", "Boreal Shield West", "Hudson Plains",
+params5$fill.color.vect <- c('chocolate1', 'olivedrab1')
+params5$mapped.ecozones <- list("Boreal Cordillera", "Boreal Plains", "Boreal Shield East", "Boreal Shield West", "Hudson Plains",
                                  "Taiga Cordillera", "Taiga Plains", "Taiga Shield East", "Taiga Shield West")
-# params4c$mapped.ecozones <- list("Boreal Cordillera", "Boreal Plains") 
+# params5$mapped.ecozones <- list("Boreal Cordillera", "Boreal Plains") 
+
+param_file_prog = file.path(base_wkg_dir, 'AllUTMzones_params5.Rdata', fsep = .Platform$file.sep) 
+save(params5, file = param_file_prog)
 
 stats.by.eco.dir <- file.path(base_results_dir, "StatsByEcozone")
 # stats.by.eco.dir <- file.path(base_results_dir, "StatsByEcozone_1stRun_Still_w_DEM_zeros_errors")
@@ -92,36 +95,36 @@ if (! file.exists(StatsByEcozone.subdir)){dir.create(StatsByEcozone.subdir, show
 
 idx.plt <- 1
 plot.list <- list()
-for (targ in params4c$targ.names.lg) {
+for (targ in params5$targ.names.lg) {
   
   idx.targ <- which(params3$targ.names.lg==targ)
 
-  boxpl.values.df <- data.frame(Ecozone= rep('', length(params4c$mapped.ecozones)), mean=rep(NA, length(params4c$mapped.ecozones)), c10=rep(NA, length(params4c$mapped.ecozones)), c25=rep(NA, length(params4c$mapped.ecozones)), 
-                                c50=rep(NA, length(params4c$mapped.ecozones)), c75=rep(NA, length(params4c$mapped.ecozones)), c90=rep(NA, length(params4c$mapped.ecozones)), x=seq(1, length(params4c$mapped.ecozones)),
+  boxpl.values.df <- data.frame(Ecozone= rep('', length(params5$mapped.ecozones)), mean=rep(NA, length(params5$mapped.ecozones)), c10=rep(NA, length(params5$mapped.ecozones)), c25=rep(NA, length(params5$mapped.ecozones)), 
+                                c50=rep(NA, length(params5$mapped.ecozones)), c75=rep(NA, length(params5$mapped.ecozones)), c90=rep(NA, length(params5$mapped.ecozones)), x=seq(1, length(params5$mapped.ecozones)),
                                 stringsAsFactors=FALSE)
   
-  for (z in 1:length(params4c$mapped.ecozones)) {
-    zone.name <- params4c$mapped.ecozones[[z]]
+  for (z in 1:length(params5$mapped.ecozones)) {
+    zone.name <- params5$mapped.ecozones[[z]]
     desc.stat.table <- fread(file.path(stats.by.eco.dir, sprintf('%s_stats.csv', zone.name)), header=T)
-    cmd <- sprintf('boxpl.values.df[z, seq(2, ncol(boxpl.values.df)-1)] <- desc.stat.table[V1 %%in%% params4c$stats.vect]$%s', targ)
+    cmd <- sprintf('boxpl.values.df[z, seq(2, ncol(boxpl.values.df)-1)] <- desc.stat.table[V1 %%in%% params5$stats.vect]$%s', targ)
     eval(parse(text=cmd))
     boxpl.values.df[z,1] <- zone.name
   }
   
-  if (targ == params4c$targ.names.lg[length(params4c$targ.names.lg)]) {   ## if plot is the last one set specific values
-    labels.x <- unlist(params4c$mapped.ecozones)
+  if (targ == params5$targ.names.lg[length(params5$targ.names.lg)]) {   ## if plot is the last one set specific values
+    labels.x <- unlist(params5$mapped.ecozones)
     margins.vect <- c(0,0,0,0)
   } else {
-    labels.x <- rep('', length(params4c$mapped.ecozones))
+    labels.x <- rep('', length(params5$mapped.ecozones))
     margins.vect <- c(0,0,-0.5,0)
   }
   
   plot.list[[idx.plt]] <- ggplot(boxpl.values.df, aes(x = as.factor(x))) + 
-    geom_boxplot(aes(ymin=c10, lower=c25, middle=c50, upper=c75, ymax=c90), stat = "identity", fill=params4c$fill.color.vect[idx.plt]) +
+    geom_boxplot(aes(ymin=c10, lower=c25, middle=c50, upper=c75, ymax=c90), stat = "identity", fill=params5$fill.color.vect[idx.plt]) +
     geom_point(aes(x=x, y=mean), color='black', size=1, shape=1, stroke=2) +
     labs(y = sprintf("%s [%s]", params3$targ.names.plots[idx.targ], params3$targ.units.plots[idx.targ]), x = '') +
     scale_x_discrete(labels=labels.x) +
-    coord_cartesian(ylim = params4c$ylims[[idx.plt]]) +
+    coord_cartesian(ylim = params5$ylims[[idx.plt]]) +
     theme(panel.background = element_blank(),
           panel.border = element_rect(colour = "gray", fill=NA),
           panel.grid.major = element_line(colour="black", size=0.3, linetype="dashed"),

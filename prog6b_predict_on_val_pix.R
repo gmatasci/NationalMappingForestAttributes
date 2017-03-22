@@ -1,5 +1,5 @@
-## Project Name: NationalImputationForestAttributes
-## Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hoabart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
+## Project Name: NationalMappingForestAttributes
+## Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hobart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
 ## File Name: prog6b_predict_on_val_pix.R                          
 ## Objective: Predict forest attributes through time for validation pixels whose predictors are provided in a CSV file.
 
@@ -56,19 +56,19 @@ models.subdir <- "D:/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR_N
 
 #### SCRIPT SPECIFIC PARAMETERS ---------------------------------------------
 
-params4b <- list()
+params6b <- list()
 
 ## Actual parameters to be used
-params4b$subsetting <- F  ## to subset the dataset to a nr of samples = params3$nr.pts.plot (for debugging in development phase)
-params4b$nr.pts.subset <- 2000
-params4b$mapped.years <- seq(from=1984, to=2012)
-# params4b$mapped.years <- seq(from=1984, to=1986)
-params4b$methods <- c("RF", "YAI") ## accepts "RF" and/or "YAI", used to run analyses only for the specified methods
+params6b$subsetting <- F  ## to subset the dataset to a nr of samples = params3$nr.pts.plot (for debugging in development phase)
+params6b$nr.pts.subset <- 2000
+params6b$mapped.years <- seq(from=1984, to=2012)
+# params6b$mapped.years <- seq(from=1984, to=1986)
+params6b$methods <- c("RF", "YAI") ## accepts "RF" and/or "YAI", used to run analyses only for the specified methods
 
-params4b$targ.names.temporal.lg <- c("elev_p95", "percentage_first_returns_above_2m")
+params6b$targ.names.temporal.lg <- c("elev_p95", "percentage_first_returns_above_2m")
 
-param_file_prog4b = file.path(base_wkg_dir, 'AllUTMzones_params4b.Rdata', fsep = .Platform$file.sep) 
-save(params4b, file = param_file_prog4b)
+param_file_prog6b = file.path(base_wkg_dir, 'AllUTMzones_params6b.Rdata', fsep = .Platform$file.sep) 
+save(params6b, file = param_file_prog6b)
 
 #### LOAD PACKAGES ----------------------------------------------------------
 
@@ -117,12 +117,12 @@ plots.info <- fread("D:/Research/ANALYSES/NationalMappingForestAttributes/Rcode_
 
 melted.predictions <- NULL
 
-for (yr in 1:length(params4b$mapped.years)) {
+for (yr in 1:length(params6b$mapped.years)) {
   
-  print(params4b$mapped.years[yr])
+  print(params6b$mapped.years[yr])
   
   ## Load dataset from CSV
-  file.name <- file.path(predictors.dir, sprintf("0_plot_UTM_indices_%s.csv", params4b$mapped.years[yr]), fsep = .Platform$file.sep)
+  file.name <- file.path(predictors.dir, sprintf("0_plot_UTM_indices_%s.csv", params6b$mapped.years[yr]), fsep = .Platform$file.sep)
   yearly.predictors <- fread(file.name, header = T)
   
   ## Keep only validation data
@@ -135,20 +135,20 @@ for (yr in 1:length(params4b$mapped.years)) {
   yearly.predictors[, YrsSince_GrCh:=as.numeric(YrsSince_GrCh)]  
   
   ## Trick to be used in the testing phase only to have smaller datasets and a faster debugging
-  if (params4b$subsetting) {
+  if (params6b$subsetting) {
     set.seed(paramsGL$global.seed)
-    pix.idx <- sample(1:nrow(yearly.predictors), params4b$nr.pts.subset)
+    pix.idx <- sample(1:nrow(yearly.predictors), params6b$nr.pts.subset)
     yearly.predictors <- yearly.predictors[pix.idx, ]
   }
   
-  Y.map.predicted.RF <- Y.map.predicted.YAI <- data.table(rep(params4b$mapped.years[yr], nrow(yearly.predictors)))
+  Y.map.predicted.RF <- Y.map.predicted.YAI <- data.table(rep(params6b$mapped.years[yr], nrow(yearly.predictors)))
   
   
 #### RANDOM FOREST ---------------------------------------------------------------------
   
-  if ("RF" %in% params4b$methods) {  ## run only if RF is in params4b$methods
+  if ("RF" %in% params6b$methods) {  ## run only if RF is in params6b$methods
     
-    for (targ in params4b$targ.names.temporal.lg) {
+    for (targ in params6b$targ.names.temporal.lg) {
     
         RF.model.path <- file.path(models.subdir, sprintf("RF_%s.Rdata", targ), fsep=.Platform$file.sep)
         load(RF.model.path)
@@ -158,15 +158,15 @@ for (yr in 1:length(params4b$mapped.years)) {
         
         Y.map.predicted.RF <- cbind(Y.map.predicted.RF, prediction.res$aggregate)
         
-    }  ## end for on params4b$targ.names.temporal.lg
+    }  ## end for on params6b$targ.names.temporal.lg
     
-    setnames(Y.map.predicted.RF, c("Year", params4b$targ.names.temporal.lg))
+    setnames(Y.map.predicted.RF, c("Year", params6b$targ.names.temporal.lg))
     
   }  ## end if on RF
       
 #### YAIMPUTE -------------------------------------------------------------------
       
-  if ("YAI" %in% params4b$methods) {  ## run only if "YAI" is specified in methods
+  if ("YAI" %in% params6b$methods) {  ## run only if "YAI" is specified in methods
     
     ids.val.predicted <- as.data.table( newtargets(yai.rf, yearly.predictors[, stats3$final.predictors, with=FALSE], k=1)["neiIdsTrgs"] )
     ids.val.predicted[, idx:=seq(from=1, to=nrow(yearly.predictors[, stats3$final.predictors, with=FALSE]))]
@@ -185,23 +185,23 @@ for (yr in 1:length(params4b$mapped.years)) {
   melted.predictions <- rbind(melted.predictions, list(Y.map.predicted.RF, Y.map.predicted.YAI))
   
   
-}  ## end for on params4b$mapped.years
+}  ## end for on params6b$mapped.years
 
 ## Stitch together the list elements by column of lists
 melted.predictions.RF <- rbindlist(melted.predictions[,1])  ## first is for RF
 melted.predictions.YAI <- rbindlist(melted.predictions[,2])   ## second is for YAI
 
 ## Add pixel ID replicated by year to later reshape the data with one row per pixel
-melted.predictions.RF[, pixID:=rep(1:sum(melted.predictions.RF$Year==params4b$mapped.years[1]), length(params4b$mapped.years))]
-melted.predictions.YAI[, pixID:=rep(1:sum(melted.predictions.YAI$Year==params4b$mapped.years[1]), length(params4b$mapped.years))]
+melted.predictions.RF[, pixID:=rep(1:sum(melted.predictions.RF$Year==params6b$mapped.years[1]), length(params6b$mapped.years))]
+melted.predictions.YAI[, pixID:=rep(1:sum(melted.predictions.YAI$Year==params6b$mapped.years[1]), length(params6b$mapped.years))]
 
 ## Loop to select only the targets of interest
-for (targ in params4b$targ.names.temporal.lg) {
+for (targ in params6b$targ.names.temporal.lg) {
   
   ## Reshape RF data to have one row per pixel (pixID) and one column per year and then add ecozone ID
   predictions.RF <- reshape(melted.predictions.RF[, c("pixID", "Year", targ), with=FALSE], idvar = "pixID", timevar = "Year", direction = "wide")
   predictions.RF[, pixID:=NULL]
-  setnames(predictions.RF, as.character(params4b$mapped.years))
+  setnames(predictions.RF, as.character(params6b$mapped.years))
 
   ## Save in a file with name varying wrt target and ecozone
   file.name.melted.predictions.RF <- file.path(predicted.values.dir, sprintf("time_series_val_set_RF_%s.csv", targ), fsep = .Platform$file.sep)
@@ -210,7 +210,7 @@ for (targ in params4b$targ.names.temporal.lg) {
   ## Same for YAI
   predictions.YAI <- reshape(melted.predictions.YAI[, c("pixID", "Year", targ), with=FALSE], idvar = "pixID", timevar = "Year", direction = "wide")
   predictions.YAI[, pixID:=NULL]
-  setnames(predictions.YAI, as.character(params4b$mapped.years))
+  setnames(predictions.YAI, as.character(params6b$mapped.years))
 
   file.name.melted.predictions.YAI <- file.path(predicted.values.dir, sprintf("time_series_val_set_YAI_%s.csv", targ), fsep = .Platform$file.sep)
   fwrite(predictions.YAI, file.name.melted.predictions.YAI)

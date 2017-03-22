@@ -1,5 +1,5 @@
 """
-Project Name: NationalImputationForestAttributes
+Project Name: NationalMappingForestAttributes
 Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hoabart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
 File Name: mergeTransects.py                        
 Objective: Merge into a single shp all the individual shps containing the transects in each UTM zone

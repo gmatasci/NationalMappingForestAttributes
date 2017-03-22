@@ -1,17 +1,18 @@
 ## Project Name: NationalMappingForestAttributes
-## Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hoabart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
+## Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hobart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
 ## File Name: prog3_model_selection.R                           
 ## Objective: Descriptive statistics and plots, variable selection and Random Forest prediction/imputation
 
 #### TO DO -------------------------------------------------------------------
 
 ## STILL TO DO:
+
 # Prior to actual run:
 # - remove redefinition of base_wkg_dir
 # - check final UTM zones to sample (now 17 with the removal of 11S)
 # - params3$run.MS <- T     
 # - params3$run.MA <- T
-# - params3$run.SG <- T 
+# - params3$run.SG <- T
 # - params3$parallel.RF.MS <- T 
 # - params3$parallel.RF.MA <- T (or F if we want RF importance)
 # - params3$subsetting <- F
@@ -55,6 +56,7 @@
 #   then related to <UTMzone>_plot_inventory_attributes2.csv by "unique_id" -- this was the old way to do with Harold's FCIDs, now it is easier bc these IDs are the initial unique plot IDs of the LiDAR transect 
 # -V if we only map on boreal do we exclude some ecozones? Shall we exclude them also in training and/or validation? -- if we use Brandt boreal definition, all of the 9 ecozones we sample are boreal ecozones.
 # -V change bin width in residual hists -- set to 1m width for elev_p95 starting at 0
+# -V include handling of forest attributes (change back "params3$targ.names.lg" and similar to their orig list and remove if on params3$include.forest.attr)
 
 #### READS/WRITES ------------------------------------------------------------
 
@@ -80,26 +82,31 @@ load(param_file_prog2)
 
 source("D:/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR_NationalMappingForestAttributes/code/Functions_NatMapping_R.R")
 
-## subdirectory to save model assessment plots
-Assess.CAN.subdir <- file.path(base_figures_dir, "Assessment_CAN_level", fsep = .Platform$file.sep)
-if (! file.exists(Assess.CAN.subdir)){dir.create(Assess.CAN.subdir, showWarnings = F, recursive = T)}
-
 #### SCRIPT SPECIFIC PARAMETERS ---------------------------------------------
 
 params3 <- list()
 
 ## Actual parameters to be used
-params3$subsetting <- F   ## to subset the dataset to a nr of samples = params3$nr.pts.plot (for debugging in development phase)
+
+params3$lidar.sources <- c("BOREAL", "NONBOREAL")
+
+params3$by.UTM.Ch_attr <- T   ## set to True if one want to run only stats/graphs by ecozone (most meaningful split)
+
+params3$subsetting <- T   ## to subset the dataset to a nr of samples = params3$nr.pts.plot (for debugging in development phase)
+
+params3$fitted.data <- F
+# params3$fitted.data <- T
 
 params3$filterCC <- F    ## whether to filter the datasets wrt canopy cover 
 params3$filterCC.thresh <- 10     ## thereshold on canopy cover pct to use
 
 params3$methods <- list("YAI") ## accepts "RF" and/or "YAI", used to run analyses only for the specified methods
 params3$run.checks <- F   ## whether to run checks for duplicate FCIDs, run only once, as of 06/06/2016 all is OK
-params3$run.descr.stats <- F  ## whether to run descriptive stats block
+params3$run.descr.stats <- T  ## whether to run descriptive stats block
 params3$run.MS <- F     ## whether to run model selection block
-params3$run.MA <- F    ## whether to run model assessment block (if set to FALSE, the script loads the prediction files saved in the last run in base_results_dir, to be used to change the plots based on the same results though)
+params3$run.MA <- T    ## whether to run model assessment block (if set to FALSE, the script loads the prediction files saved in the last run in results_dir, to be used to change the plots based on the same results though)
 params3$run.SG <- T    ## whether to run stats & graphs block
+params3$run.dist.cov <- F     ## whether to run distortion of covariance analysis block
 params3$parallel.RF.MS <- T    ## whether to run RF in parallel in the model selection block
 params3$parallel.RF.MA <- F     ## whether to run RF in parallel in the model assessment block (variable importance is not available after having run the RF in parallel, so is set to FALSE) 
 params3$ntree.MS <- 100     ## nr of RF trees in the model selection phase (ideally 500 but then YaImp, which cannot be run in parallel) it takes ages
@@ -129,8 +136,10 @@ params3$targ.yaImp.names.lg <- list("elev_mean", "elev_stddev", "elev_cv", "elev
 params3$targ.yaImp.names.sh <- list("el_m", "el_std", "el_cv", "el_p95", "p_1r_2m", "p_1r_me")
 
 ## two key target variables used in descriptive plots to show X to Y relationship
-params3$targ.key.names.lg <- list("percentage_first_returns_above_2m", "total_biomass")
-params3$targ.key.names.sh <- list("p_1r_2m", "tot_biom")
+# params3$targ.key.names.lg <- list("percentage_first_returns_above_2m", "total_biomass")
+# params3$targ.key.names.sh <- list("p_1r_2m", "tot_biom")
+params3$targ.key.names.lg <- list("percentage_first_returns_above_2m", "elev_p95")
+params3$targ.key.names.sh <- list("p_1r_2m", "el_p95")
 
 ## final target variable names and units to be used in plots
 params3$targ.names.plots <- list("elev_mean", "elev_sd", "elev_cv", "elev_p95", "cover_2m", "cover_mean", "loreys_height", "basal_area", "stem_volume", "ag_biomass")
@@ -142,7 +151,7 @@ params3$Ch_attr.labels <- c(0, 1, 2, 3, 4)  ## no "Infrastructure" bc there are 
 
 params3$groups.to.plot <- list('Bands', 'TCcomps_VI', 'ChangeAttribution', 'Years_Topo_Coords')  ## to plot relation with key response vars separately (and in a visually pleasing way)
 
-params3$nr.pts.plot <- 2000    ## to make pairs plots less dense in points and to subset the dataset for tests in the developement phase
+params3$nr.pts.plot <- 8000    ## to make pairs plots less dense in points and to subset the dataset for tests in the developement phase
 
 params3$corr.high <- 0.95    ## corr threshold to highlight high correlation among predictors
 params3$corr.low <- 1     ## corr threshold to highlight low correlation between predictors and response vars
@@ -159,9 +168,12 @@ params3$all.ecozones <- list("Arctic Cordillera", "Atlantic Maritime", "Boreal C
                           "Hudson Plains", "Mixedwood Plains", "Montane Cordillera", "Northern Arctic", "Pacific Maritime", "Semiarid Prairies", 
                           "Southern Arctic", "Subhumid Prairies", "Taiga Cordillera", "Taiga Plains", "Taiga Shield East", "Taiga Shield West")
 
-## ecozones covered by the transect
-params3$sampled.ecozones <- list("Atlantic Maritime", "Boreal Cordillera", "Boreal Plains", "Boreal Shield East", "Boreal Shield West", "Hudson Plains", 
-                                  "Taiga Plains", "Taiga Shield East", "Taiga Shield West")  ## Semiarid Prairies and Subhumid Prairies (ECOZONE_ID = 10 in shp) result in 0 and 3 plots, respectively, so we remove them
+## ecozones covered by the transect in BOREAL
+params3$sampled.ecozones.BOREAL <- list("Atlantic Maritime", "Boreal Cordillera", "Boreal Plains", "Boreal Shield East", "Boreal Shield West", "Hudson Plains", 
+                                 "Taiga Plains", "Taiga Shield East", "Taiga Shield West")  ## Semiarid Prairies and Subhumid Prairies (ECOZONE_ID = 10 in shp) result in 0 and 3 plots, respectively, so we remove them
+
+## ecozones covered by BC data in NONBOREAL
+params3$sampled.ecozones.NONBOREAL <- list("Montane Cordillera", "Pacific Maritime")
 
 param_file_prog3 = file.path(base_wkg_dir, 'AllUTMzones_params3.Rdata', fsep = .Platform$file.sep) 
 save(params3, file = param_file_prog3)
@@ -200,25 +212,57 @@ for (pack in list.of.packages){
   library(pack, character.only=TRUE)
 }
 
+
 #### START ------------------------------------------------------------------
 
 tic <- proc.time() ## start clocking global time
+
+if (!params3$fitted.data) {
+  figures_dir <- base_figures_dir
+  results_dir <- base_results_dir
+  models.subdir <- file.path(base_wkg_dir, "Models", fsep = .Platform$file.sep)
+} else {
+  figures_dir <- sprintf('%s_FITTED', base_figures_dir)
+  results_dir <- sprintf('%s_FITTED', base_results_dir)
+  models.subdir <- file.path(base_wkg_dir, "Models_FITTED", fsep = .Platform$file.sep)
+}
+
+## subdirectory to save model assessment plots
+Assess.CAN.subdir <- file.path(figures_dir, "Assessment_CAN_level", fsep = .Platform$file.sep)
+if (! file.exists(Assess.CAN.subdir)){dir.create(Assess.CAN.subdir, showWarnings = F, recursive = T)}
+
+## create model subdirectories to save models for later use (in mapping phase)
+if (! file.exists(models.subdir)){dir.create(models.subdir, showWarnings = F, recursive = T)}
 
 #### READ DATA --------------------------------------------------------------
 
 ## load plot training and validation data for lidar metrics and derived structural attributes (old "str", for structural)
 Y.trn.val.raw <- read.csv(file.path(base_wkg_dir, "lidar_metrics_mean_training_validation.csv", fsep = .Platform$file.sep))
 
-## change units for "summable" variables: unit per plot (625m^2) to unit per hectare (10000m^2) --> multiply by 16
-Y.trn.val.raw[, c("basal_area", "gross_stem_volume", "total_biomass")] <- Y.trn.val.raw[, c("basal_area", "gross_stem_volume", "total_biomass")]*16
+## for BOREAL data, change units for "summable" variables: unit per plot (625m^2) to unit per hectare (10000m^2) --> multiply by 16
+idx.BOREAL <- !Y.trn.val.raw$ECOZONE %in% params3$sampled.ecozones.NONBOREAL
+Y.trn.val.raw[idx.BOREAL, c("basal_area", "gross_stem_volume", "total_biomass")] <- Y.trn.val.raw[idx.BOREAL, c("basal_area", "gross_stem_volume", "total_biomass")]*16
 
 ## transform biomass from kg/ha to t/ha
 Y.trn.val.raw[, "total_biomass"] <- Y.trn.val.raw[, "total_biomass"]/1000
 
 ## load explanatory variables extracted for training plots (old "env", for environment)
-X.trn.val.raw <- read.csv(file.path(base_wkg_dir, "poly_training_validation_exvars_extract.csv", fsep = .Platform$file.sep))
+if (!params3$fitted.data) {
+  X.trn.val.raw <- read.csv(file.path(base_wkg_dir, "poly_training_validation_exvars_extract.csv", fsep = .Platform$file.sep))
+} else {
+  X.trn.val.raw <- read.csv(file.path(base_wkg_dir, "poly_training_validation_exvars_extract_fitted.csv", fsep = .Platform$file.sep))
+}
 
 X.trn.val.raw$Ch_attr <- as.factor(X.trn.val.raw$Ch_attr)   ## to make sure RF interprets Ch_attr as a categorical variable
+
+## Adjust lists wrt source of data
+UTM.zones.to.analyze <- paramsGL$zones 
+if ("NONBOREAL" %in% params3$lidar.sources) {   ## if NONBOREAL BC data is being used (2nd part of study dealing with temporal extension)
+  UTM.zones.to.analyze <- unique(c(UTM.zones.to.analyze, "UTM10S"))  ## add to the list of UTM zones (if not already in there) zone nr. 10S, where all of the BC transects are located
+  sampled.ecozones <- c(params3$sampled.ecozones.BOREAL, params3$sampled.ecozones.NONBOREAL) ## and set the sampled ecozones as being the union of the two sets
+} else {  ## if only BOREAL (1st part of study dealing with the 2010 mapping)...
+  sampled.ecozones <- params3$sampled.ecozones.BOREAL ## ...keep only BOREAL ecozones
+}
 
 ## to check integrity of datasets before running everything
 if (params3$run.checks) {
@@ -236,19 +280,31 @@ if (params3$run.checks) {
   ## check for duplicate FCIDs (POLY250ID) in the various <UTMzone>_poly_training_validation.shp shapefiles
   uniq.df <- data.frame(matrix(ncol = 2, nrow = 0))
   FCIDs.df <- vector(length=0)
-  for (z in 1:length(paramsGL$zones)) {
-    zone <- paramsGL$zones[z]
-    zone.nr <- substr(zone, 4, nchar(zone))
-    wkg_dir = file.path(base_wkg_dir,zone, fsep = .Platform$file.sep)
-    poly.training.validation <-  readOGR(dsn = wkg_dir, layer = paste(zone,"_poly_training_validation",sep = ''))
-    uniq.df <- rbind( uniq.df, c( length(poly.training.validation@data$POLY250ID), length(unique(poly.training.validation@data$POLY250ID)) ) )
-    FCIDs.df <- c(FCIDs.df, as.vector(poly.training.validation@data$POLY250ID) )
+  for (ls in 1:length(params3$lidar.sources)) {
+    
+    lidar.source <- params3$lidar.sources[ls]
+    
+    if (lidar.source == "BOREAL") {
+      zones <- paramsGL$zones
+    } else {
+      zones <- params2$transect.names
+    }
+  
+    for (z in 1:length(zones)) {
+      zone <- zones[z]
+      wkg_dir <- file.path(base_wkg_dir, zone, fsep = .Platform$file.sep)
+      poly.training.validation <-  readOGR(dsn = wkg_dir, layer = paste(zone,"_poly_training_validation",sep = ''))
+      uniq.df <- rbind( uniq.df, c( length(poly.training.validation@data$POLY250ID), length(unique(poly.training.validation@data$POLY250ID)) ) )
+      FCIDs.df <- c(FCIDs.df, as.vector(poly.training.validation@data$POLY250ID) )
+    }
+    
   }
+  
   if ( colSums(uniq.df)[1] != colSums(uniq.df)[2] ) {
-    stop("Prog3: There are duplicate FCIDs (POLY250ID) within the various <UTMzone>_poly_training_validation.shp shapefiles")
+    stop("Prog3: There are duplicate FCIDs (POLY250ID) within the various <zone>_poly_training_validation.shp shapefiles")
   }
   if ( length(unique(FCIDs.df)) != length(FCIDs.df) ) {
-    stop("Prog3: There are duplicate FCIDs (POLY250ID) between the various <UTMzone>_poly_training_validation.shp shapefiles")
+    stop("Prog3: There are duplicate FCIDs (POLY250ID) between the various <zone>_poly_training_validation.shp shapefiles")
   }
 
 }
@@ -257,15 +313,22 @@ if (params3$run.checks) {
 idx.Landsat.zero <- X.trn.val.raw[, "b1"]==0 & X.trn.val.raw[, "b2"]==0 & X.trn.val.raw[, "b3"]==0 & X.trn.val.raw[, "b4"]==0 & X.trn.val.raw[, "b5"]==0 & X.trn.val.raw[, "b7"]==0
 idx.Elev.zero <- X.trn.val.raw[, "Elev"]==0
 idx.raster.zero <- idx.Landsat.zero | idx.Elev.zero  ## set as TRUE if either of the 2 conditions is TRUE
-Y.trn.val <- Y.trn.val.raw[!idx.raster.zero, ]  ## keep rows that are not (!) to remove
-X.trn.val <- X.trn.val.raw[!idx.raster.zero, ]
-rm(Y.trn.val.raw, X.trn.val.raw)  ## clear space after filtering
+Y.trn.val.raw <- Y.trn.val.raw[!idx.raster.zero, ]  ## keep rows that are not (!) to remove
+X.trn.val.raw <- X.trn.val.raw[!idx.raster.zero, ]
 
 ## delete samples from Subhumid Prairies (just 3 plots after filtering)
-idx.Subhumid.Prairies <- Y.trn.val$ECOZONE == "Subhumid Prairies"
-Y.trn.val <- Y.trn.val[!idx.Subhumid.Prairies, ]
-X.trn.val <- X.trn.val[!idx.Subhumid.Prairies, ]
+idx.Subhumid.Prairies <- Y.trn.val.raw$ECOZONE == "Subhumid Prairies"
+Y.trn.val <- Y.trn.val.raw[!idx.Subhumid.Prairies, ]
+X.trn.val <- X.trn.val.raw[!idx.Subhumid.Prairies, ]
 Y.trn.val$ECOZONE <- factor(Y.trn.val$ECOZONE)  ## to drop the level we just removed
+
+rm(Y.trn.val.raw, X.trn.val.raw)  ## clear space after filtering
+
+## Check if Ecozones lists do not match between that specified in parameters and that extracted from dataset
+if ( !identical( sort(factor(unlist(sampled.ecozones))), sort(unique(Y.trn.val$ECOZONE)) ) ) {
+  warning("Specified Ecozones do not match those found in dataset, continuing with those in dataset!")
+  sampled.ecozones <- unique(Y.trn.val$ECOZONE)
+}
 
 ## filter wrt canopy cover
 if (params3$filterCC) {
@@ -298,7 +361,7 @@ X.trn.val.corr <- X.trn.val[, unlist(params2$pred.names.sh)[prior.know.cont.idx]
 X.corr.matrix <- cor(X.trn.val.corr)  ## compute corr only among predictors (top-left sub-block)
 
 ## print correlation matrix as a Latex table
-print( xtable(X.corr.matrix, digits=2), file = file.path(base_results_dir, "X_corr_matrix.tex", sep = '') )
+print( xtable(X.corr.matrix, digits=2), file = file.path(results_dir, "X_corr_matrix.tex", sep = '') )
 
 ## based on the dataset after removal of unwanted predictors by prior knowledge, find subset of redundant variables automatically:
 ## in a pair having r>cutoff remove the variable with highest average absolute correlation with rest of available variables (exact=T)
@@ -325,22 +388,23 @@ if (params3$run.descr.stats) {
   XY.corr.matrix.NA <- round(cbind(X.corr.matrix.high, XtoY.corr.matrix.low), digits=3)
   
   ## save both complete matrix and those with NAs highlighting high correlations only
-  write.csv(XY.corr.matrix, file = file.path(base_results_dir, "XY_corr_matrix.csv", sep = ''))
+  write.csv(XY.corr.matrix, file = file.path(results_dir, "XY_corr_matrix.csv", sep = ''))
   str <- sprintf( "XY_corr_matrix_filtr_High%s_Low%s.csv", gsub(".", "p", as.character(params3$corr.high), fixed=T), gsub(".", "p", as.character(params3$corr.low), fixed=T)) 
-  write.csv(XY.corr.matrix.NA, file = file.path(base_results_dir, str, sep = ''))
+  write.csv(XY.corr.matrix.NA, file = file.path(results_dir, str, sep = ''))
 
 #### CANADIAN LEVEL X-Y RELATION PLOTS ------------------------------------------
   
   ## create figure subdirectories
-  CAN.subdir <- file.path(base_figures_dir, "Relations_CAN_level", fsep = .Platform$file.sep)
-  EcoUTMzone.subdir <- file.path(base_figures_dir, "Histograms_EcoUTMzone_level", fsep = .Platform$file.sep)
+  CAN.subdir <- file.path(figures_dir, "Relations_CAN_level", fsep = .Platform$file.sep)
+  EcoUTMzone.subdir <- file.path(figures_dir, "Histograms_EcoUTMzone_level", fsep = .Platform$file.sep)
   if (! file.exists(CAN.subdir)){dir.create(CAN.subdir, showWarnings = F, recursive = T)}
   if (! file.exists(EcoUTMzone.subdir)){dir.create(EcoUTMzone.subdir, showWarnings = F, recursive = T)}
   
-  ## create indices for subsampling 
+  ## create indices for subsampling
   set.seed(paramsGL$global.seed)
-  plot.idx.init <- sample(1:nrow(X.trn.val), params3$nr.pts.plot)  # take a subset of # params3$nr.pts.plot of points to plot
-  UTM.idx <- which(paste('UTM', X.trn.val$UTMzone, sep='') %in% paramsGL$zones)  ## to only select samples of the UTM zones specified in paramsGL$zones
+  plot.idx.init <- sample( 1:nrow(X.trn.val), min(params3$nr.pts.plot, nrow(X.trn.val)) )  # take a subset of # params3$nr.pts.plot of points to plot
+  
+  UTM.idx <- which(paste('UTM', X.trn.val$UTMzone, sep='') %in% UTM.zones.to.analyze)  ## to only select samples of the UTM zones specified in UTM.zones.to.analyze
   plot.idx <- plot.idx.init[plot.idx.init %in% UTM.idx]
   
   Y.data.to.plot <- Y.trn.val[plot.idx, unlist(params3$targ.key.names.lg)] ## select Y columns to plot
@@ -362,18 +426,18 @@ if (params3$run.descr.stats) {
       df.to.plot <- cbind(X.data.to.plot, Y.data.to.plot.Ch_attr)
 
       ## Canadian level (merged UTM zones) boxplots by Change_attr (categorical var)
-      plot1 <- ggplot(df.to.plot, aes(x=Ch_attr, y=p_1r_2m, fill=Ch_attr)) +         ## canopy cover above 2m
+      plot1 <- ggplot(df.to.plot, aes_string(x="Ch_attr", y=params3$targ.key.names.sh[[1]], fill="Ch_attr")) +  
         geom_boxplot(notch=F, outlier.shape = NA) + 
         scale_x_discrete(labels=params3$Ch_attr.classes[1+as.integer(levels(df.to.plot$Ch_attr))]) + 
         theme(axis.text.x = element_text(angle = 45, hjust = 1))
-      plot2 <- ggplot(df.to.plot, aes(x=Ch_attr, y=tot_biom, fill=Ch_attr)) +          ## biomass
+      plot2 <- ggplot(df.to.plot, aes_string(x="Ch_attr", y=params3$targ.key.names.sh[[2]], fill="Ch_attr")) +          
         geom_boxplot(notch=F, outlier.shape = NA) + 
         scale_x_discrete(labels=params3$Ch_attr.classes[1+as.integer(levels(df.to.plot$Ch_attr))]) + 
         theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
-        coord_cartesian(ylim = c(0, 250000))
+        coord_cartesian(ylim = c(0, 40))
       str <- file.path(CAN.subdir, sprintf("CAN_boxplots_keyTarg_VS_%s.pdf", gr.name), sep='')
       pdf(str, width=10, height=5)
-        grid.arrange(plot1, plot2, nrow=1, ncol=2, top=sprintf("%s VS pct_1ret_ab_2m and tot_biom", gr.name))  ## arrange the two plots in same two subplots
+        grid.arrange(plot1, plot2, nrow=1, ncol=2, top=sprintf("%s VS %s and %s", gr.name, params3$targ.key.names.sh[[1]], params3$targ.key.names.sh[[2]]))  ## arrange the two plots in same two subplots
       dev.off()
       
       next
@@ -403,7 +467,7 @@ if (params3$run.descr.stats) {
       pairs.panels(data.to.plot, pch=1, cex=cex.val, 
                    scale=F, density=F, ellipses=F, lm=T, jiggle=F, rug=F,
                    breaks=15, cex.labels=cex.labels.val, cex.cor=cex.cor.val,
-                   main=sprintf("%s VS pct_1ret_ab_2m and tot_biom", gr.name))
+                   main=sprintf("%s VS %s and %s", gr.name, params3$targ.key.names.sh[[1]], params3$targ.key.names.sh[[2]]))
     dev.off()
   
   }
@@ -432,8 +496,8 @@ if (params3$run.descr.stats) {
       str <- file.path(EcoUTMzone.subdir, sprintf("UTMzonesHist_%s.pdf", var), sep='')
       pdf(str)
       par(mfrow=c(4,5), oma = c(5,4,2,2) + 0.1, mar = c(2,2,2,2) + 0.1)  ## parameters to arrange nicely the panel of plots
-      for (z in 1:length(paramsGL$zones)) {
-        zone <- paramsGL$zones[z]
+      for (z in 1:length(UTM.zones.to.analyze)) {
+        zone <- UTM.zones.to.analyze[z]
         zone.nr <- substr(zone, 4, nchar(zone))
         zone.idx <- UTMzone.to.plot == zone.nr  ## get zone indexes to plot only data of that specific zone in this round of the loop
         hist(var.to.plot[zone.idx], main=sprintf("%s", zone), freq=T, breaks=my.breaks, xlim=my.hist.lims, xlab=NULL, ylab=NULL, col='lightgreen')  # , breaks=20
@@ -445,8 +509,8 @@ if (params3$run.descr.stats) {
       str <- file.path(EcoUTMzone.subdir, sprintf("EcozonesHist_%s.pdf", var), sep='')
       pdf(str)
       par(mfrow=c(3,3), oma = c(5,4,2,2) + 0.1, mar = c(2,2,2,2) + 0.1)  ## parameters to arrange nicely the panel of plots (for regular R plots, ggplot is different and requires package "gridExtra")
-      for (z in 1:length(params3$sampled.ecozones)) {
-        zone <- params3$sampled.ecozones[z]
+      for (z in 1:length(sampled.ecozones)) {
+        zone <- sampled.ecozones[z]
         zone.idx <- ECOzone.to.plot == zone  ## get zone indexes to plot only data of that specific zone in this round of the loop
         hist(var.to.plot[zone.idx], main=sprintf("%s", zone), freq=T, breaks=my.breaks, xlim=my.hist.lims, xlab=NULL, ylab=NULL, col='lightblue')  # , breaks=20
       }
@@ -459,8 +523,8 @@ if (params3$run.descr.stats) {
       str <- file.path(EcoUTMzone.subdir, sprintf("UTMzonesHist_%s.pdf", var), sep='')
       pdf(str)
       par(mfrow=c(4,5), oma = c(5,4,2,2) + 0.1, mar = c(1,0,4.5,2) + 0.1)   
-      for (z in 1:length(paramsGL$zones)) {
-        zone <- paramsGL$zones[z]
+      for (z in 1:length(UTM.zones.to.analyze)) {
+        zone <- UTM.zones.to.analyze[z]
         zone.nr <- substr(zone, 4, nchar(zone))
         zone.idx <- which(data.to.plot$UTMzone == zone.nr)
         if (var == "YrsSince_GrCh") {  ## special case for YrsSince_GrCh, some extra processing   
@@ -478,8 +542,8 @@ if (params3$run.descr.stats) {
       str <- file.path(EcoUTMzone.subdir, sprintf("EcozonesHist_%s.pdf", var), sep='')
       pdf(str)
       par(mfrow=c(3,3), oma = c(5,4,2,2) + 0.1, mar = c(1,0,4.5,2) + 0.1)
-      for (z in 1:length(params3$sampled.ecozones)) {
-        zone <- params3$sampled.ecozones[z]
+      for (z in 1:length(sampled.ecozones)) {
+        zone <- sampled.ecozones[z]
         zone.idx <- ECOzone.to.plot == zone
         if (var == "YrsSince_GrCh") {
           yr.range <- 0:25  ## full range to be barplotted
@@ -492,11 +556,11 @@ if (params3$run.descr.stats) {
       title(var, outer=T)
       dev.off()
       
-    }
+    } ## end if-else on !var %in% cat.vars
     
-  }
+  }   ## end for on var
 
-}
+}   ## end if on params3$run.descr.stats
 
 #### DATA PREPARATION -------------------------------------------------
 
@@ -742,17 +806,13 @@ if (params3$run.MS) {  ## run model selection phase only if we want to select be
   }
   
   RES_MS.df <- t(RES_MS.df)  ## transpose df for better visualization and save it as csv file
-  write.csv(RES_MS.df, file = file.path(base_results_dir, sprintf("RES_MS_%s.csv", params3$metrics.MS), sep = ''))
+  write.csv(RES_MS.df, file = file.path(results_dir, sprintf("RES_MS_%s.csv", params3$metrics.MS), sep = ''))
 
   stats3$RES_MS.df <- RES_MS.df  ## add table to stats list to be saved
   
 }
 
 #### MODEL ASSESSMENT ---------------------------------------------------------------------------
-
-## create model subdirectories to save models for later use (in mapping phase)
-models.subdir <- file.path(base_wkg_dir, "Models", fsep = .Platform$file.sep)
-if (! file.exists(models.subdir)){dir.create(models.subdir, showWarnings = F, recursive = T)}
 
 ## specify best set of predictors found after model selction phase (params3$best.predictor.group): allow selection only among plausible models (e.g. Rthresh_0p8 discards Latitude)
 if (params3$best.predictor.group == "all") {
@@ -831,14 +891,14 @@ if (params3$run.MA) {  ## run this block only if you want to (re)run the actual 
       Y.val.predicted.RF <- arrange(Y.val.predicted.RF, FCID)
       Y.val.predicted.stddev.RF <- rownames_2_FCID(Y.val.predicted.stddev.RF)  ## to make the column FCID available for the merge() function in the assessment part below
       Y.val.predicted.stddev.RF <- arrange(Y.val.predicted.stddev.RF, FCID)
-      write.csv(Y.val.predicted.RF, file = file.path(base_results_dir, sprintf("Y_val_predicted_matrix_RF.csv"), sep = ''))
-      write.csv(Y.val.predicted.stddev.RF, file = file.path(base_results_dir, sprintf("Y_val_predicted_stddev_matrix_RF.csv"), sep = ''))
+      write.csv(Y.val.predicted.RF, file = file.path(results_dir, sprintf("Y_val_predicted_matrix_RF.csv"), sep = ''))
+      write.csv(Y.val.predicted.stddev.RF, file = file.path(results_dir, sprintf("Y_val_predicted_stddev_matrix_RF.csv"), sep = ''))
       
       ## compute processing time for RF
       temp.toc <- proc.time()-temp.tic[3]
       print(paste("Random Forest elapsed time:", seconds_to_period(temp.toc[3])))
     
-    }
+    }  ## end if method == "RF"
   
 
 #### YAIMPUTE -------------------------------------------------------------------
@@ -902,13 +962,13 @@ if (params3$run.MA) {  ## run this block only if you want to (re)run the actual 
       
       ## arrange and save predictions to be loaded in case we want only to redo plots
       Y.val.predicted.Yai <- arrange(Y.val.predicted.Yai, FCID)
-      write.csv(Y.val.predicted.Yai, file = file.path(base_results_dir, sprintf("Y_val_predicted_matrix_YAI.csv"), sep = ''))
+      write.csv(Y.val.predicted.Yai, file = file.path(results_dir, sprintf("Y_val_predicted_matrix_YAI.csv"), sep = ''))
       
       ## compute processing time for YAI
       temp.toc <- proc.time()-temp.tic[3]
       print(paste("YaImpute elapsed time:", seconds_to_period(temp.toc[3])))
     
-    }
+    }  ## end if method == "YAI"
   
   }  ## end for on params3$methods
 
@@ -917,11 +977,11 @@ if (params3$run.MA) {  ## run this block only if you want to (re)run the actual 
   if (params3$run.SG) {   ## only run this block if we want to run the STATS AND GRAPHS part below
     for (method in params3$methods) {
       if (method == "RF") {  ## only read the csv files of the corresponding methods
-        Y.val.predicted.RF <- read.csv(file.path(base_results_dir, sprintf("Y_val_predicted_matrix_RF.csv"), fsep = .Platform$file.sep), row.names=1)  ## row.names=1 to have same format as when these dataframes are produced in the predictions phase
-        Y.val.predicted.stddev.RF <- read.csv(file.path(base_results_dir, sprintf("Y_val_predicted_stddev_matrix_RF.csv"), fsep = .Platform$file.sep), row.names=1)
+        Y.val.predicted.RF <- read.csv(file.path(results_dir, sprintf("Y_val_predicted_matrix_RF.csv"), fsep = .Platform$file.sep), row.names=1)  ## row.names=1 to have same format as when these dataframes are produced in the predictions phase
+        Y.val.predicted.stddev.RF <- read.csv(file.path(results_dir, sprintf("Y_val_predicted_stddev_matrix_RF.csv"), fsep = .Platform$file.sep), row.names=1)
       }
       if (method == "YAI") {
-        Y.val.predicted.Yai <- read.csv(file.path(base_results_dir, sprintf("Y_val_predicted_matrix_YAI.csv"), fsep = .Platform$file.sep), row.names=1)
+        Y.val.predicted.Yai <- read.csv(file.path(results_dir, sprintf("Y_val_predicted_matrix_YAI.csv"), fsep = .Platform$file.sep), row.names=1)
       }
     }
   }
@@ -932,9 +992,11 @@ if (params3$run.MA) {  ## run this block only if you want to (re)run the actual 
 
 if (params3$run.SG) {  ## only run this block if we want to run this STATS AND GRAPHS part
 
-  ## if it doesn't already exist, create folder to save bivariate check plots
-  BivCheck.CAN.subdir <- file.path(Assess.CAN.subdir, "Bivariate_check", sep='')  
-  if (! file.exists(BivCheck.CAN.subdir)){dir.create(BivCheck.CAN.subdir, showWarnings = F, recursive = T)}
+  if (params3$run.dist.cov) {
+    ## if it doesn't already exist, create folder to save bivariate check plots
+    BivCheck.CAN.subdir <- file.path(Assess.CAN.subdir, "Bivariate_check", sep='')  
+    if (! file.exists(BivCheck.CAN.subdir)){dir.create(BivCheck.CAN.subdir, showWarnings = F, recursive = T)}
+  }
   
   ## same for residuals plots
   Resid.subdir <- file.path(Assess.CAN.subdir, "Residuals", sep='')  
@@ -965,17 +1027,21 @@ if (params3$run.SG) {  ## only run this block if we want to run this STATS AND G
     colnames(CAN.stats.df) <- params3$metrics.MA.colnames  ## columns are the metrics
     rownames(CAN.stats.df) <- params3$targ.names.plots   ## rows are resp. variable names
     
-    ECO.stats.df <- data.frame( matrix( nrow=length(params3$targ.names.plots), ncol=length(params3$sampled.ecozones) ) )  ## initialize matrix to store by ecozone assessment stats
-    colnames(ECO.stats.df) <- params3$sampled.ecozones  ## columns are the sampled ecozones
+    ECO.stats.df <- data.frame( matrix( nrow=length(params3$targ.names.plots), ncol=length(sampled.ecozones) ) )  ## initialize matrix to store by ecozone assessment stats
+    colnames(ECO.stats.df) <- sampled.ecozones  ## columns are the sampled ecozones
     rownames(ECO.stats.df) <- params3$targ.names.plots  
     
-    UTM.stats.df <- data.frame( matrix( nrow=length(params3$targ.names.plots), ncol=length(paramsGL$zones) ) )  ## initialize matrix to store by UTM zone assessment stats
-    colnames(UTM.stats.df) <- paramsGL$zones    ## columns are the UTM zones
-    rownames(UTM.stats.df) <- params3$targ.names.plots 
+    if (params3$by.UTM.Ch_attr) {
+      
+      UTM.stats.df <- data.frame( matrix( nrow=length(params3$targ.names.plots), ncol=length(UTM.zones.to.analyze) ) )  ## initialize matrix to store by UTM zone assessment stats
+      colnames(UTM.stats.df) <- UTM.zones.to.analyze    ## columns are the UTM zones
+      rownames(UTM.stats.df) <- params3$targ.names.plots 
+      
+      CNG.stats.df <- data.frame( matrix( nrow=length(params3$targ.names.plots), ncol=length(params3$Ch_attr.classes)-1 ) )  ## initialize matrix to store by Change attribution assessment stats (we do not consider the class "Infrastructure")
+      colnames(CNG.stats.df) <- params3$Ch_attr.classes[-length(params3$Ch_attr.classes)]
+      rownames(CNG.stats.df) <- params3$targ.names.plots
     
-    CNG.stats.df <- data.frame( matrix( nrow=length(params3$targ.names.plots), ncol=length(params3$Ch_attr.classes)-1 ) )  ## initialize matrix to store by Change attribution assessment stats (we do not consider the class "Infrastructure")
-    colnames(CNG.stats.df) <- params3$Ch_attr.classes[-length(params3$Ch_attr.classes)]
-    rownames(CNG.stats.df) <- params3$targ.names.plots
+    }
     
     ## define axis labels for plots
     plot.xlabel <- "observed"
@@ -998,15 +1064,19 @@ if (params3$run.SG) {  ## only run this block if we want to run this STATS AND G
     idx.targ <- 1  ## growing numerical index to automatically fill results.shp.df and other dfs
     for (targ in params3$targ.names.lg) {
       
-      ## load RF model for each target to get variable importance
-      cmd <- sprintf('load(file.path(models.subdir, "RF_%s.Rdata", fsep=.Platform$file.sep))', targ) 
-      eval(parse(text=cmd))
-  
-      ## fill variable importance dataframe
-      ## type=1: mean decrease in accuracy (mean increase in MSE for regression). For each tree, the prediction error on the out-of-bag portion of the data is
-      ## recorded. Then the same is done after permuting each predictor variable. The difference between the two are then averaged over all trees, and normalized by the standard deviation of the differences.
-      ## IF PARALLEL RF IS USED SETTING SCALE=T WILL HAVE NO EFFECT, SO USE SEQUENTIAL RF FOR VARIABLE IMPORTANCE PLOT
-      var.imp.df[targ, ] <- t(importance(rf.RF, type=1, scale=T))  
+      if (method == "RF") {
+        
+        ## load RF model for each target to get variable importance
+        cmd <- sprintf('load(file.path(models.subdir, "RF_%s.Rdata", fsep=.Platform$file.sep))', targ) 
+        eval(parse(text=cmd))
+    
+        ## fill variable importance dataframe
+        ## type=1: mean decrease in accuracy (mean increase in MSE for regression). For each tree, the prediction error on the out-of-bag portion of the data is
+        ## recorded. Then the same is done after permuting each predictor variable. The difference between the two are then averaged over all trees, and normalized by the standard deviation of the differences.
+        ## IF PARALLEL RF IS USED SETTING SCALE=T WILL HAVE NO EFFECT, SO USE SEQUENTIAL RF FOR VARIABLE IMPORTANCE PLOT
+        var.imp.df[targ, ] <- t(importance(rf.RF, type=1, scale=T)) 
+      
+      }
       
       ## build temporary df to enable stats by category with ddply()
       cmd <- sprintf('temp.df <- data.frame(Y.val.observ$%s, Y.val.predicted$%s, Y.val.predicted[, c("ECOZONE", "UTMzone")], X.val[, c("Ch_attr", "Long", "Lat")])', targ, targ)
@@ -1050,18 +1120,23 @@ if (params3$run.SG) {  ## only run this block if we want to run this STATS AND G
   
       ## by Ecozone stats
       stats.by <- ddply(temp.df, "ECOZONE", summarize, regr_metrics(observed, predicted)[params3$metrics.MS])   ## apply regr_metrics to the columns "predicted" and "observed" of dataframe temp.df split by "ECOZONE"...
-      ECO.stats.df[idx.targ, ] <- t(stats.by[match(as.character(params3$sampled.ecozones), as.character(stats.by$ECOZONE)), ][,2])   ## ...then match the order of the stats.by dataframe to the list of Ecozones (in params3) and finally take only 2nd column (with results) and transpose it to fill ECO.stats.df 
+      ECO.stats.df[idx.targ, ] <- t(stats.by[match(as.character(sampled.ecozones), as.character(stats.by$ECOZONE)), ][,2])   ## ...then match the order of the stats.by dataframe to the list of Ecozones (in params3) and finally take only 2nd column (with results) and transpose it to fill ECO.stats.df 
       
-      ## by UTMZone stats
-      zone.nrs <- data.frame("UTMzone"=substr(paramsGL$zones, 4, nchar(paramsGL$zones)))  ## to get rid of the "UTM" characters
-      stats.by <- ddply(temp.df, "UTMzone", summarize, regr_metrics(observed, predicted)[params3$metrics.MS])
-      UTM.stats.df[idx.targ, ] <- t(stats.by[match(as.character(zone.nrs$UTMzone), as.character(stats.by$UTMzone)), ][,2])
       
-      ## by Ch_attr stats
-      temp.df.Ch <- temp.df[temp.df$Ch_attr!=4, ]   ## to drop "infrastructure" (level nr 4) 
-      temp.df.Ch$Ch_attr <- factor(temp.df.Ch$Ch_attr)  ## to recompute factor level after having dropped one level
-      stats.by <- ddply(temp.df.Ch, "Ch_attr", summarize, regr_metrics(observed, predicted)[params3$metrics.MS])   
-      CNG.stats.df[idx.targ, ] <- t(stats.by[match(params3$Ch_attr.labels, stats.by$Ch_attr), ][,2])
+      if (params3$by.UTM.Ch_attr) {
+
+        ## by UTMZone stats
+        zone.nrs <- data.frame("UTMzone"=substr(UTM.zones.to.analyze, 4, nchar(UTM.zones.to.analyze)))  ## to get rid of the "UTM" characters
+        stats.by <- ddply(temp.df, "UTMzone", summarize, regr_metrics(observed, predicted)[params3$metrics.MS])
+        UTM.stats.df[idx.targ, ] <- t(stats.by[match(as.character(zone.nrs$UTMzone), as.character(stats.by$UTMzone)), ][,2])
+        
+        ## by Ch_attr stats
+        temp.df.Ch <- temp.df[temp.df$Ch_attr!=4, ]   ## to drop "infrastructure" (level nr 4) 
+        temp.df.Ch$Ch_attr <- factor(temp.df.Ch$Ch_attr)  ## to recompute factor level after having dropped one level
+        stats.by <- ddply(temp.df.Ch, "Ch_attr", summarize, regr_metrics(observed, predicted)[params3$metrics.MS])   
+        CNG.stats.df[idx.targ, ] <- t(stats.by[match(params3$Ch_attr.labels, stats.by$Ch_attr), ][,2])
+    
+      }
       
       ## histograms of residuals by Ecozone
       if (targ %in% c("elev_p95", "elev_mean", "loreys_height")) {   ## if resp. variable is measured in meters start around 0 and set 1m wide bins
@@ -1076,8 +1151,8 @@ if (params3$run.SG) {  ## only run this block if we want to run this STATS AND G
       str <- file.path(Resid.subdir, sprintf("ResidualsHist_%s_%s.pdf", method, targ), sep='')
       pdf(str)
       par(mfrow=c(3,3), oma = c(5,4,2,2) + 0.1, mar = c(2,2,2,2) + 0.1)  ## parameters to arrange nicely the panel of plots
-      for (z in 1:length(params3$sampled.ecozones)) {
-        zone <- params3$sampled.ecozones[z]
+      for (z in 1:length(sampled.ecozones)) {
+        zone <- sampled.ecozones[z]
         zone.idx <- temp.df$ECOZONE == zone  ## get zone indexes to plot only data of that specific zone in this round of the loop
         hist(temp.df$resid[zone.idx & idx.to.plot], main=sprintf("%s", zone), freq=T, breaks=my.breaks, xlim=my.hist.lims, xlab=NULL, ylab=NULL, col='red')  # , breaks=20
       }
@@ -1191,111 +1266,114 @@ if (params3$run.SG) {  ## only run this block if we want to run this STATS AND G
         dev.off()
         
       }
-    }
+    }   ## end if params3$plot.importance
     
     
 #### DISTORTION OF COVARIANCE ---------------------------------------------------------------
     
-    ## flag of critical samples with over-under estimation in two key variables (elev_p95 vs cover_2m)
-    results.shp.df$OvHtUnCov <- results.shp.df$R_el_p95 > params3$distort.thresh.elevp95 & results.shp.df$R_p_1r_2m < -params3$distort.thresh.cover2m ## overestimation of height and underestimation of cover
-    results.shp.df$UnHtOvCov <- results.shp.df$R_el_p95 < -params3$distort.thresh.elevp95 & results.shp.df$R_p_1r_2m > params3$distort.thresh.cover2m  ## underestimation of height and overestimation of cover
+    if (params3$run.dist.cov) {
     
-    ## write shp with individual validation plot prediction results
-    results.shp.df <- data.frame(results.shp.df, X.val$Long, X.val$Lat, rownames(results.shp.df))   ## add FCID as a column of the dataframe to be able to read in back in ArcMap or in R with readOGR
-    colnames(results.shp.df)[ncol(results.shp.df)] <- "FCID"   ## rename it to respect the 10 char limits in ESRI shapefiles!
-    coordinates(results.shp.df) <- ~X.val.Long+X.val.Lat   ## set coordinates as center of the plot
-    proj4string(results.shp.df) <- CRS("+proj=longlat +datum=NAD83")
-    writeOGR(results.shp.df, base_results_dir, sprintf('val_predictions_%s', method), driver="ESRI Shapefile", overwrite_layer=TRUE)  ## just to check validity of other layers, never used later on
-    
-    ## CAN-level bivariate scatterplots
-    
-    ## observed-observed
-    if (method == params3$methods[1]) {  ## to run this only once as the observed values are only one
-      x.axis.var <- results.shp.df@data$O_el_p95   ## x-axis is always the observed elev_p95 (main variable)
-      for ( idx.targ in which(!unlist(params3$targ.names.sh) %in% "el_p95") ) {   ## loop over the rest of the resp. variables
-        cmd <- sprintf("y.axis.var <- results.shp.df@data$O_%s", params3$targ.names.sh[idx.targ])   ## set as y-axis the other observed resp. variable
+      ## flag of critical samples with over-under estimation in two key variables (elev_p95 vs cover_2m)
+      results.shp.df$OvHtUnCov <- results.shp.df$R_el_p95 > params3$distort.thresh.elevp95 & results.shp.df$R_p_1r_2m < -params3$distort.thresh.cover2m ## overestimation of height and underestimation of cover
+      results.shp.df$UnHtOvCov <- results.shp.df$R_el_p95 < -params3$distort.thresh.elevp95 & results.shp.df$R_p_1r_2m > params3$distort.thresh.cover2m  ## underestimation of height and overestimation of cover
+      
+      ## write shp with individual validation plot prediction results
+      results.shp.df <- data.frame(results.shp.df, X.val$Long, X.val$Lat, rownames(results.shp.df))   ## add FCID as a column of the dataframe to be able to read in back in ArcMap or in R with readOGR
+      colnames(results.shp.df)[ncol(results.shp.df)] <- "FCID"   ## rename it to respect the 10 char limits in ESRI shapefiles!
+      coordinates(results.shp.df) <- ~X.val.Long+X.val.Lat   ## set coordinates as center of the plot
+      proj4string(results.shp.df) <- CRS("+proj=longlat +datum=NAD83")
+      writeOGR(results.shp.df, results_dir, sprintf('val_predictions_%s', method), driver="ESRI Shapefile", overwrite_layer=TRUE)  ## just to check validity of other layers, never used later on
+      
+      ## CAN-level bivariate scatterplots
+      
+      ## observed-observed
+      if (method == params3$methods[1]) {  ## to run this only once as the observed values are only one
+        x.axis.var <- results.shp.df@data$O_el_p95   ## x-axis is always the observed elev_p95 (main variable)
+        for ( idx.targ in which(!unlist(params3$targ.names.sh) %in% "el_p95") ) {   ## loop over the rest of the resp. variables
+          cmd <- sprintf("y.axis.var <- results.shp.df@data$O_%s", params3$targ.names.sh[idx.targ])   ## set as y-axis the other observed resp. variable
+          eval(parse(text=cmd))
+          fig.name.str <- file.path(BivCheck.CAN.subdir, sprintf("Bivariate_ObsObs_scatter_elevp95_vs_%s.pdf", params3$targ.names.sh[idx.targ]), sep='')
+          pdf(fig.name.str)
+            theme_set(theme_gray(base_size = 18))
+            plot.to.print <- plot_colorByDensity(x.axis.var, y.axis.var, xlab="obs. elev_p95 [m]", ylab=sprintf("obs. %s [%s]", params3$targ.names.plots[idx.targ], params3$targ.units.plots[idx.targ]), main=sprintf("R=%.3f", cor(x.axis.var, y.axis.var)))  ## add simple correlation 
+            print(plot.to.print)
+          dev.off()
+        }
+      }  
+      
+      ## observed-predicted
+      x.axis.var <- results.shp.df@data$O_el_p95
+      for ( idx.targ in which(!unlist(params3$targ.names.sh) %in% "el_p95") ) {
+        cmd <- sprintf("y.axis.var <- results.shp.df@data$P_%s", params3$targ.names.sh[idx.targ])  ## set as y-axis the other predicted resp. variable
         eval(parse(text=cmd))
-        fig.name.str <- file.path(BivCheck.CAN.subdir, sprintf("Bivariate_ObsObs_scatter_elevp95_vs_%s.pdf", params3$targ.names.sh[idx.targ]), sep='')
+        fig.name.str <- file.path(BivCheck.CAN.subdir, sprintf("Bivariate_ObsPred_scatter_elevp95_vs_%s_%s.pdf", params3$targ.names.sh[idx.targ], method), sep='')
         pdf(fig.name.str)
           theme_set(theme_gray(base_size = 18))
-          plot.to.print <- plot_colorByDensity(x.axis.var, y.axis.var, xlab="obs. elev_p95 [m]", ylab=sprintf("obs. %s [%s]", params3$targ.names.plots[idx.targ], params3$targ.units.plots[idx.targ]), main=sprintf("R=%.3f", cor(x.axis.var, y.axis.var)))  ## add simple correlation 
+          plot.to.print <- plot_colorByDensity(x.axis.var, y.axis.var, xlab="obs. elev_p95 [m]", ylab=sprintf("pred. %s [%s]", params3$targ.names.plots[idx.targ], params3$targ.units.plots[idx.targ]), main=sprintf("R=%.3f", cor(x.axis.var, y.axis.var)))
           print(plot.to.print)
         dev.off()
       }
-    }  
-    
-    ## observed-predicted
-    x.axis.var <- results.shp.df@data$O_el_p95
-    for ( idx.targ in which(!unlist(params3$targ.names.sh) %in% "el_p95") ) {
-      cmd <- sprintf("y.axis.var <- results.shp.df@data$P_%s", params3$targ.names.sh[idx.targ])  ## set as y-axis the other predicted resp. variable
-      eval(parse(text=cmd))
-      fig.name.str <- file.path(BivCheck.CAN.subdir, sprintf("Bivariate_ObsPred_scatter_elevp95_vs_%s_%s.pdf", params3$targ.names.sh[idx.targ], method), sep='')
-      pdf(fig.name.str)
-        theme_set(theme_gray(base_size = 18))
-        plot.to.print <- plot_colorByDensity(x.axis.var, y.axis.var, xlab="obs. elev_p95 [m]", ylab=sprintf("pred. %s [%s]", params3$targ.names.plots[idx.targ], params3$targ.units.plots[idx.targ]), main=sprintf("R=%.3f", cor(x.axis.var, y.axis.var)))
-        print(plot.to.print)
-      dev.off()
-    }
-    
-    ## predicted-predicted  
-    x.axis.var <- results.shp.df@data$P_el_p95   ## x-axis is always the predicted elev_p95
-    for ( idx.targ in which(!unlist(params3$targ.names.sh) %in% "el_p95") ) {
-      cmd <- sprintf("y.axis.var <- results.shp.df@data$P_%s", params3$targ.names.sh[idx.targ])  ## set as y-axis the other predicted resp. variable
-      eval(parse(text=cmd))
-      fig.name.str <- file.path(BivCheck.CAN.subdir, sprintf("Bivariate_PredPred_scatter_elevp95_vs_%s_%s.pdf", params3$targ.names.sh[idx.targ], method), sep='')
-      pdf(fig.name.str)
-        theme_set(theme_gray(base_size = 18))
-        plot.to.print <- plot_colorByDensity(x.axis.var, y.axis.var, xlab="pred. elev_p95 [m]", ylab=sprintf("pred. %s [%s]", params3$targ.names.plots[idx.targ], params3$targ.units.plots[idx.targ]), main=sprintf("R=%.3f", cor(x.axis.var, y.axis.var)))
-        print(plot.to.print)
-      dev.off()
-    }
-    
-    ## residual-residual
-    x.axis.var <- results.shp.df@data$R_el_p95   ## x-axis is always the residuals of elev_p95
-    ## to have same axis limits... 
-    if (method == params3$methods[1]) {  ## ...only at the 1st round of the method loop (for RF)...
-      lims.table.x <- matrix(nrow = length(params3$targ.names.sh), ncol=2)  ## ...initialize limits for x and y axis (2-columns matrix) and then...
-      lims.table.y <- lims.table.x
-    }
-    for ( idx.targ in which(!unlist(params3$targ.names.sh) %in% "el_p95") ) {
-      cmd <- sprintf("y.axis.var <- results.shp.df@data$R_%s", params3$targ.names.sh[idx.targ])
-      eval(parse(text=cmd))
-      if (method == params3$methods[1]) {  ## ...compute only once, for RF, the range to be plotted and reuse the same for the YAI
-        lims.table.x[idx.targ, ] <- c(quantile(x.axis.var, 0.0001, names=F), quantile(x.axis.var, 0.9999, names=F))
-        lims.table.y[idx.targ, ] <- c(quantile(y.axis.var, 0.0001, names=F), quantile(y.axis.var, 0.9999, names=F))
+      
+      ## predicted-predicted  
+      x.axis.var <- results.shp.df@data$P_el_p95   ## x-axis is always the predicted elev_p95
+      for ( idx.targ in which(!unlist(params3$targ.names.sh) %in% "el_p95") ) {
+        cmd <- sprintf("y.axis.var <- results.shp.df@data$P_%s", params3$targ.names.sh[idx.targ])  ## set as y-axis the other predicted resp. variable
+        eval(parse(text=cmd))
+        fig.name.str <- file.path(BivCheck.CAN.subdir, sprintf("Bivariate_PredPred_scatter_elevp95_vs_%s_%s.pdf", params3$targ.names.sh[idx.targ], method), sep='')
+        pdf(fig.name.str)
+          theme_set(theme_gray(base_size = 18))
+          plot.to.print <- plot_colorByDensity(x.axis.var, y.axis.var, xlab="pred. elev_p95 [m]", ylab=sprintf("pred. %s [%s]", params3$targ.names.plots[idx.targ], params3$targ.units.plots[idx.targ]), main=sprintf("R=%.3f", cor(x.axis.var, y.axis.var)))
+          print(plot.to.print)
+        dev.off()
       }
-      fig.name.str <- file.path(BivCheck.CAN.subdir, sprintf("Bivariate_ResidResid_scatter_elevp95_vs_%s_%s.pdf", params3$targ.names.sh[idx.targ], method), sep='')
-      pdf(fig.name.str)
-        theme_set(theme_gray(base_size = 18))
-        plot.to.print <- plot_colorByDensity(x.axis.var, y.axis.var, xlim=lims.table.x[idx.targ, ], ylim=lims.table.y[idx.targ, ], xlab="resid. elev_p95 [m]", ylab=sprintf("resid. %s [%s]", params3$targ.names.plots[idx.targ], params3$targ.units.plots[idx.targ]), main=sprintf("R=%.3f", cor(x.axis.var, y.axis.var)))
-        if (params3$targ.names.sh[idx.targ] == "p_1r_2m") {   ## if the comparison is with cover_2m (p_1r_2m) add the vertical lines showing incoherent predictions (beyond params3$distort.thresh.<targ>)
-          plot.to.print <- plot.to.print + geom_vline(xintercept=c(-params3$distort.thresh.elevp95, params3$distort.thresh.elevp95)) + geom_hline(yintercept=c(-params3$distort.thresh.cover2m, params3$distort.thresh.cover2m))
+      
+      ## residual-residual
+      x.axis.var <- results.shp.df@data$R_el_p95   ## x-axis is always the residuals of elev_p95
+      ## to have same axis limits... 
+      if (method == params3$methods[1]) {  ## ...only at the 1st round of the method loop (for RF)...
+        lims.table.x <- matrix(nrow = length(params3$targ.names.sh), ncol=2)  ## ...initialize limits for x and y axis (2-columns matrix) and then...
+        lims.table.y <- lims.table.x
+      }
+      for ( idx.targ in which(!unlist(params3$targ.names.sh) %in% "el_p95") ) {
+        cmd <- sprintf("y.axis.var <- results.shp.df@data$R_%s", params3$targ.names.sh[idx.targ])
+        eval(parse(text=cmd))
+        if (method == params3$methods[1]) {  ## ...compute only once, for RF, the range to be plotted and reuse the same for the YAI
+          lims.table.x[idx.targ, ] <- c(quantile(x.axis.var, 0.0001, names=F), quantile(x.axis.var, 0.9999, names=F))
+          lims.table.y[idx.targ, ] <- c(quantile(y.axis.var, 0.0001, names=F), quantile(y.axis.var, 0.9999, names=F))
         }
-        print(plot.to.print)
-      dev.off()
-    }
-
-    ## Correlation and corr difference matrices for observed/predicted values on validation set
+        fig.name.str <- file.path(BivCheck.CAN.subdir, sprintf("Bivariate_ResidResid_scatter_elevp95_vs_%s_%s.pdf", params3$targ.names.sh[idx.targ], method), sep='')
+        pdf(fig.name.str)
+          theme_set(theme_gray(base_size = 18))
+          plot.to.print <- plot_colorByDensity(x.axis.var, y.axis.var, xlim=lims.table.x[idx.targ, ], ylim=lims.table.y[idx.targ, ], xlab="resid. elev_p95 [m]", ylab=sprintf("resid. %s [%s]", params3$targ.names.plots[idx.targ], params3$targ.units.plots[idx.targ]), main=sprintf("R=%.3f", cor(x.axis.var, y.axis.var)))
+          if (params3$targ.names.sh[idx.targ] == "p_1r_2m") {   ## if the comparison is with cover_2m (p_1r_2m) add the vertical lines showing incoherent predictions (beyond params3$distort.thresh.<targ>)
+            plot.to.print <- plot.to.print + geom_vline(xintercept=c(-params3$distort.thresh.elevp95, params3$distort.thresh.elevp95)) + geom_hline(yintercept=c(-params3$distort.thresh.cover2m, params3$distort.thresh.cover2m))
+          }
+          print(plot.to.print)
+        dev.off()
+      }
+  
+      ## Correlation and corr difference matrices for observed/predicted values on validation set
+      
+      if (method == params3$methods[1]) {  ## compute observed correlation matrix only once
+        obs.data.matrix <- results.shp.df@data[ , seq(1,ncol(results.shp.df)-3,3)]  ## select every 3rd column until 3rd to last column to only use observed and predicted values
+        colnames(obs.data.matrix) <- params3$targ.names.plots
+        obs.corr.matrix <- cor(obs.data.matrix)
+        write.csv(obs.corr.matrix, file = file.path(results_dir, "Val_obs_corr_matrix.csv", sep = ''))  ## save csv and tex with name telling it is the observed correlation matrix
+        print( xtable(obs.corr.matrix, digits=rep(2, length(ncol(obs.corr.matrix)))), file = file.path(results_dir, "Val_obs_corr_matrix.tex", sep = '') )  
+      }
+      pred.data.matrix <- results.shp.df@data[ , seq(2,ncol(results.shp.df)-3,3)]  ## select every 3rd column starting from 2nd
+      colnames(pred.data.matrix) <- params3$targ.names.plots
+      pred.corr.matrix <- cor(pred.data.matrix)
+      write.csv(pred.corr.matrix, file = file.path(results_dir, sprintf("Val_pred_%s_corr_matrix.csv", method), sep = ''))  ## save csv and tex with name telling it is the predicted correlation matrix for a given method
+      cmd <- sprintf( "print( xtable(pred.corr.matrix, digits=rep(2, length(ncol(pred.corr.matrix)))), file = file.path(results_dir, \"Val_pred_%s_corr_matrix.tex\", sep = '') )", method)
+      eval(parse(text=cmd))
+      diff.corr.matrix <- pred.corr.matrix-obs.corr.matrix
+      write.csv(diff.corr.matrix, file = file.path(results_dir, sprintf("Val_diff_%s_corr_matrix.csv", method), sep = ''))
+      cmd <- sprintf( "print( xtable(diff.corr.matrix, digits=rep(2, length(ncol(diff.corr.matrix)))), file = file.path(results_dir, \"Val_diff_%s_corr_matrix.tex\", sep = '') )", method)
+      eval(parse(text=cmd))
     
-    if (method == params3$methods[1]) {  ## compute observed correlation matrix only once
-      obs.data.matrix <- results.shp.df@data[ , seq(1,ncol(results.shp.df)-3,3)]  ## select every 3rd column until 3rd to last column to only use observed and predicted values
-      colnames(obs.data.matrix) <- params3$targ.names.plots
-      obs.corr.matrix <- cor(obs.data.matrix)
-      write.csv(obs.corr.matrix, file = file.path(base_results_dir, "Val_obs_corr_matrix.csv", sep = ''))  ## save csv and tex with name telling it is the observed correlation matrix
-      print( xtable(obs.corr.matrix, digits=rep(2, length(ncol(obs.corr.matrix)))), file = file.path(base_results_dir, "Val_obs_corr_matrix.tex", sep = '') )  
     }
-    pred.data.matrix <- results.shp.df@data[ , seq(2,ncol(results.shp.df)-3,3)]  ## select every 3rd column starting from 2nd
-    colnames(pred.data.matrix) <- params3$targ.names.plots
-    pred.corr.matrix <- cor(pred.data.matrix)
-    write.csv(pred.corr.matrix, file = file.path(base_results_dir, sprintf("Val_pred_%s_corr_matrix.csv", method), sep = ''))  ## save csv and tex with name telling it is the predicted correlation matrix for a given method
-    cmd <- sprintf( "print( xtable(pred.corr.matrix, digits=rep(2, length(ncol(pred.corr.matrix)))), file = file.path(base_results_dir, \"Val_pred_%s_corr_matrix.tex\", sep = '') )", method)
-    eval(parse(text=cmd))
-    diff.corr.matrix <- pred.corr.matrix-obs.corr.matrix
-    write.csv(diff.corr.matrix, file = file.path(base_results_dir, sprintf("Val_diff_%s_corr_matrix.csv", method), sep = ''))
-    cmd <- sprintf( "print( xtable(diff.corr.matrix, digits=rep(2, length(ncol(diff.corr.matrix)))), file = file.path(base_results_dir, \"Val_diff_%s_corr_matrix.tex\", sep = '') )", method)
-    eval(parse(text=cmd))
-    
-
+  
 #### SUMMARY TABLES AND PLOTS BY CATEGORY ---------------------------------------------------------------
     
     ## round data to 1, 2 or 3 digits depending on the column
@@ -1307,43 +1385,49 @@ if (params3$run.SG) {  ## only run this block if we want to run this STATS AND G
     ECO.sorting.idx <- match(colnames(ECO.stats.df), as.character(names(TRN.samples.per.Ecozone))) ## to match order of list of Ecozones
     ECO.stats.df <- rbind(round(ECO.stats.df, 3), as.integer(TRN.samples.per.Ecozone)[ECO.sorting.idx], VAL.samples.per.Ecozone[ECO.sorting.idx])
     rownames(ECO.stats.df)[length(params3$targ.names.lg)+1:2] <- c("Nr. TRN samples", "Nr. VAL samples")
-    UTM.sorting.idx <- match(as.character(zone.nrs$UTMzone), as.character(names(TRN.samples.per.UTMzone)))  ## to match order of list of UTM zones
-    UTM.stats.df <- rbind(round(UTM.stats.df, 3), TRN.samples.per.UTMzone[UTM.sorting.idx], VAL.samples.per.UTMzone[UTM.sorting.idx])
-    rownames(UTM.stats.df)[length(params3$targ.names.lg)+1:2] <- c("Nr. TRN samples", "Nr. VAL samples")
-    CNG.sorting.idx <- match(params3$Ch_attr.labels, as.character(names(TRN.samples.per.Ch_attr)))
-    CNG.stats.df <- rbind(round(CNG.stats.df, 3), TRN.samples.per.Ch_attr[CNG.sorting.idx], VAL.samples.per.Ch_attr[CNG.sorting.idx])
-    rownames(CNG.stats.df)[length(params3$targ.names.lg)+1:2] <- c("Nr. TRN samples", "Nr. VAL samples")
     
-    ## stack results in df stats3
+    if (params3$by.UTM.Ch_attr) {
+      UTM.sorting.idx <- match(as.character(zone.nrs$UTMzone), as.character(names(TRN.samples.per.UTMzone)))  ## to match order of list of UTM zones
+      UTM.stats.df <- rbind(round(UTM.stats.df, 3), TRN.samples.per.UTMzone[UTM.sorting.idx], VAL.samples.per.UTMzone[UTM.sorting.idx])
+      rownames(UTM.stats.df)[length(params3$targ.names.lg)+1:2] <- c("Nr. TRN samples", "Nr. VAL samples")
+      CNG.sorting.idx <- match(params3$Ch_attr.labels, as.character(names(TRN.samples.per.Ch_attr)))
+      CNG.stats.df <- rbind(round(CNG.stats.df, 3), TRN.samples.per.Ch_attr[CNG.sorting.idx], VAL.samples.per.Ch_attr[CNG.sorting.idx])
+      rownames(CNG.stats.df)[length(params3$targ.names.lg)+1:2] <- c("Nr. TRN samples", "Nr. VAL samples")
+    }
+    
+    ## stack results in df stats3 and save csv and tex files
     cmd <- sprintf('stats3$%s$CAN.stats.df <- CAN.stats.df.rounded', method)
     eval(parse(text=cmd))
+    cmd <- sprintf( "write.csv( stats3$%s$CAN.stats.df, file = file.path(results_dir, \"RES_MA_%s_CAN_stats.csv\", sep = '') )", method, method )
+    eval(parse(text=cmd))
+    cmd <- sprintf( "print( xtable(stats3$%s$CAN.stats.df, digits=c(0,2,2,2,2,2,2,2,2,3,2,1,3,3,2)), file = file.path(results_dir, \"RES_MA_%s_CAN_stats.tex\", sep = '') )", method, method )
+    eval(parse(text=cmd))
+    
     cmd <- sprintf('stats3$%s$ECO.stats.df <- ECO.stats.df', method)
     eval(parse(text=cmd))
-    cmd <- sprintf('stats3$%s$UTM.stats.df <- UTM.stats.df', method)
+    cmd <- sprintf( "write.csv( stats3$%s$ECO.stats.df, file = file.path(results_dir, \"RES_MA_%s_ECO_%s.csv\", sep = '') )", method, method, params3$metrics.MS )
     eval(parse(text=cmd))
-    cmd <- sprintf('stats3$%s$CNG.stats.df <- CNG.stats.df', method)
-    eval(parse(text=cmd))
-    
-    ## save csv and tex files
-    cmd <- sprintf( "write.csv( stats3$%s$CAN.stats.df, file = file.path(base_results_dir, \"RES_MA_%s_CAN_stats.csv\", sep = '') )", method, method )
-    eval(parse(text=cmd))
-    cmd <- sprintf( "print( xtable(stats3$%s$CAN.stats.df, digits=c(0,2,2,2,2,2,2,2,2,3,2,1,3,3,2)), file = file.path(base_results_dir, \"RES_MA_%s_CAN_stats.tex\", sep = '') )", method, method )
+    cmd <- sprintf( "print( xtable(stats3$%s$ECO.stats.df, digits=c(0,rep(3, length(sampled.ecozones)))), file = file.path(results_dir, \"RES_MA_%s_ECO_%s.tex\", sep = '') )", method, method, params3$metrics.MS)
     eval(parse(text=cmd))
     
-    cmd <- sprintf( "write.csv( stats3$%s$ECO.stats.df, file = file.path(base_results_dir, \"RES_MA_%s_ECO_%s.csv\", sep = '') )", method, method, params3$metrics.MS )
-    eval(parse(text=cmd))
-    cmd <- sprintf( "print( xtable(stats3$%s$ECO.stats.df, digits=c(0,rep(3, length(params3$sampled.ecozones)))), file = file.path(base_results_dir, \"RES_MA_%s_ECO_%s.tex\", sep = '') )", method, method, params3$metrics.MS)
-    eval(parse(text=cmd))
+    if (params3$by.UTM.Ch_attr) {
+      
+      cmd <- sprintf('stats3$%s$UTM.stats.df <- UTM.stats.df', method)
+      eval(parse(text=cmd))
+      cmd <- sprintf( "write.csv( stats3$%s$UTM.stats.df, file = file.path(results_dir, \"RES_MA_%s_UTM_%s.csv\", sep = '') )", method, method, params3$metrics.MS )
+      eval(parse(text=cmd))
+      cmd <- sprintf( "print( xtable(stats3$%s$UTM.stats.df, digits=c(0,rep(3, length(UTM.zones.to.analyze)))), file = file.path(results_dir, \"RES_MA_%s_UTM_%s.tex\", sep = '') )", method, method, params3$metrics.MS)
+      eval(parse(text=cmd))
+      
+      cmd <- sprintf('stats3$%s$CNG.stats.df <- CNG.stats.df', method)
+      eval(parse(text=cmd))
+      cmd <- sprintf( "write.csv( stats3$%s$CNG.stats.df, file = file.path(results_dir, \"RES_MA_%s_CNG_%s.csv\", sep = '') )", method, method, params3$metrics.MS )
+      eval(parse(text=cmd))
+      cmd <- sprintf( "print( xtable(stats3$%s$CNG.stats.df, digits=c(0,rep(3, 4))), file = file.path(results_dir, \"RES_MA_%s_CNG_%s.tex\", sep = '') )", method, method, params3$metrics.MS)
+      eval(parse(text=cmd))
     
-    cmd <- sprintf( "write.csv( stats3$%s$UTM.stats.df, file = file.path(base_results_dir, \"RES_MA_%s_UTM_%s.csv\", sep = '') )", method, method, params3$metrics.MS )
-    eval(parse(text=cmd))
-    cmd <- sprintf( "print( xtable(stats3$%s$UTM.stats.df, digits=c(0,rep(3, length(paramsGL$zones)))), file = file.path(base_results_dir, \"RES_MA_%s_UTM_%s.tex\", sep = '') )", method, method, params3$metrics.MS)
-    eval(parse(text=cmd))
+    }
     
-    cmd <- sprintf( "write.csv( stats3$%s$CNG.stats.df, file = file.path(base_results_dir, \"RES_MA_%s_CNG_%s.csv\", sep = '') )", method, method, params3$metrics.MS )
-    eval(parse(text=cmd))
-    cmd <- sprintf( "print( xtable(stats3$%s$CNG.stats.df, digits=c(0,rep(3, 4))), file = file.path(base_results_dir, \"RES_MA_%s_CNG_%s.tex\", sep = '') )", method, method, params3$metrics.MS)
-    eval(parse(text=cmd))
     
     ## Rsq barplots by category
     
@@ -1371,50 +1455,53 @@ if (params3$run.SG) {  ## only run this block if we want to run this STATS AND G
     print(barplot)
     dev.off()
     
+    if (params3$by.UTM.Ch_attr) {
+      
+      ## by UTM zone
+      data.to.plot <- t(UTM.stats.df[targs.for.barplots, ])
+      data.melted <- melt(data.to.plot)
+      colnames(data.melted) <- c("UTMzone", "Response_var", "R2")
+      fig.name.str <- file.path(Assess.CAN.subdir, sprintf("Barplot_UTM_%s_%s.pdf", method, params3$metrics.MS), sep='')
+      pdf(fig.name.str, width=8, height=3)  
+        theme_set(theme_gray(base_size = 18))
+        barplot <- ggplot(data.melted, aes(UTMzone, R2)) +   
+                    geom_bar(aes(fill = Response_var), width = 0.75, position = "dodge", stat="identity") +
+                    theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+                          axis.line = element_line(color="gray", size = 0.5),
+                          panel.grid.major = element_line(colour="black", size=0.5, linetype="dashed"),
+                          panel.grid.major.x = element_blank(),
+                          panel.background = element_blank(),
+                          panel.border = element_rect(colour = "gray", fill=NA)) +
+                    scale_y_continuous(expand = c(0, 0), limits = c(0, 0.8)) +
+                    ylab("R^2")
+      print(barplot)
+      dev.off()
+      
+      ## by Change attribution
+      data.to.plot <- t(CNG.stats.df[targs.for.barplots, ])
+      data.melted <- melt(data.to.plot)
+      colnames(data.melted) <- c("ChangeAttribution", "Response_var", "R2")
+      fig.name.str <- file.path(Assess.CAN.subdir, sprintf("Barplot_CNG_%s_%s.pdf", method, params3$metrics.MS), sep='')
+      pdf(fig.name.str)
+        theme_set(theme_gray(base_size = 18))
+        barplot <- ggplot(data.melted, aes(ChangeAttribution, R2)) +   
+          geom_bar(aes(fill = Response_var), width = 0.75, position = "dodge", stat="identity") +
+          theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+                axis.line = element_line(color="gray", size = 0.5),
+                panel.grid.major = element_line(colour="black", size=0.5, linetype="dashed"),
+                panel.grid.major.x = element_blank(),
+                panel.background = element_blank(),
+                panel.border = element_rect(colour = "gray", fill=NA)) +
+          scale_y_continuous(expand = c(0, 0), limits = c(0, 0.8)) +
+          ylab("R^2")
+      print(barplot)
+      dev.off()
     
-    ## by UTM zone
-    data.to.plot <- t(UTM.stats.df[targs.for.barplots, ])
-    data.melted <- melt(data.to.plot)
-    colnames(data.melted) <- c("UTMzone", "Response_var", "R2")
-    fig.name.str <- file.path(Assess.CAN.subdir, sprintf("Barplot_UTM_%s_%s.pdf", method, params3$metrics.MS), sep='')
-    pdf(fig.name.str, width=8, height=3)  
-      theme_set(theme_gray(base_size = 18))
-      barplot <- ggplot(data.melted, aes(UTMzone, R2)) +   
-                  geom_bar(aes(fill = Response_var), width = 0.75, position = "dodge", stat="identity") +
-                  theme(axis.text.x = element_text(angle = 45, hjust = 1), 
-                        axis.line = element_line(color="gray", size = 0.5),
-                        panel.grid.major = element_line(colour="black", size=0.5, linetype="dashed"),
-                        panel.grid.major.x = element_blank(),
-                        panel.background = element_blank(),
-                        panel.border = element_rect(colour = "gray", fill=NA)) +
-                  scale_y_continuous(expand = c(0, 0), limits = c(0, 0.8)) +
-                  ylab("R^2")
-    print(barplot)
-    dev.off()
-    
-    ## by Change attribution
-    data.to.plot <- t(CNG.stats.df[targs.for.barplots, ])
-    data.melted <- melt(data.to.plot)
-    colnames(data.melted) <- c("ChangeAttribution", "Response_var", "R2")
-    fig.name.str <- file.path(Assess.CAN.subdir, sprintf("Barplot_CNG_%s_%s.pdf", method, params3$metrics.MS), sep='')
-    pdf(fig.name.str)
-      theme_set(theme_gray(base_size = 18))
-      barplot <- ggplot(data.melted, aes(ChangeAttribution, R2)) +   
-        geom_bar(aes(fill = Response_var), width = 0.75, position = "dodge", stat="identity") +
-        theme(axis.text.x = element_text(angle = 45, hjust = 1), 
-              axis.line = element_line(color="gray", size = 0.5),
-              panel.grid.major = element_line(colour="black", size=0.5, linetype="dashed"),
-              panel.grid.major.x = element_blank(),
-              panel.background = element_blank(),
-              panel.border = element_rect(colour = "gray", fill=NA)) +
-        scale_y_continuous(expand = c(0, 0), limits = c(0, 0.8)) +
-        ylab("R^2")
-    print(barplot)
-    dev.off()
+    }
   
   }  ## end for method in params3$methods
   
-  stats.file = file.path(base_results_dir, 'stats3.Rdata', fsep = .Platform$file.sep) 
+  stats.file <- file.path(results_dir, 'stats3.Rdata', fsep = .Platform$file.sep) 
   save(stats3, file = stats.file)
 
 }  ## end if params3$run.SG

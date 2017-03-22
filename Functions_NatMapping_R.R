@@ -1,94 +1,97 @@
 ## Project Name: NationalImputationForestAttributes
-## Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hoabart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
+## Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hobart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
 ## File Name: Functions_NatMapping_R.R                            
 ## Objective: Define R functions to make available to all R scripts
 
 #### copy_paste_UTMdata -----------------------------------------------------------
 ## copy/paste UTM zone data (NTEMS folder structure) from external HDD to a local directory
-copy_paste_UTMdata <- function(disk.names, zone, cng.var.names.long, local.dir){
+copy_paste_UTMdata <- function(disk.names, zone, zone.nr, year, cng.var.names.long, local.dir){
    
   tic.copy.UTMdata <- proc.time()
   
   list.missing.files <- vector("list", 0)
-  zone.nr <- substr(zone, 4, nchar(zone))
   
   for (dn in disk.names) {
-   list.dir.in.disk <- list.dirs(path = dn, full.names = FALSE, recursive = FALSE)
-   
-   ## checks if our zone is in the disk, if not true goes to next round of the loop with "next" command
-   if ( !zone %in% gsub('_', '', list.dir.in.disk) ) {
-     next  
-   }
-  
-   ## copy raw BAP Landsat file for 2010 to compute TC
-   cmd <- sprintf('relative.path <- file.path("UTM_%s", "Results", "proxy_values", fsep = .Platform$file.sep)', zone.nr)  
-   eval(parse(text=cmd))
-   target.dir <- file.path(local.dir, relative.path, fsep = .Platform$file.sep)
-   dir.create(target.dir, showWarnings = F, recursive = T)
-   
-   cmd <- sprintf('file.to.copy <- file.path("%s", relative.path, "SRef_UTM%s_2010_proxy_v2", fsep = .Platform$file.sep)', dn, zone.nr)
-   eval(parse(text=cmd))
-   file.to.copy.hdr <- paste (file.to.copy, '.hdr', sep = "")
-   file.to.copy.dat <- paste (file.to.copy, '.dat', sep = "")
-   files.to.copy <- list(file.to.copy.hdr, file.to.copy.dat)
-   ## TO TEST SCRIPT
-   # files.to.copy <- list(file.to.copy.hdr)
-   ## TO TEST SCRIPT
-   
-   if ( all(file.exists(unlist(files.to.copy))) ) {
+    list.dir.in.disk <- list.dirs(path = dn, full.names = FALSE, recursive = FALSE)
+    
+    ## checks if our zone is in the disk, if not true goes to next round of the loop with "next" command
+    
+    UTMzones.nr.folder <- sapply(strsplit(list.dir.in.disk, split="_"), "[", 2)  ## put in a vector the 2nd element of the splits wrt "_" (UTM zone number)
+    
+    if (!zone.nr %in% UTMzones.nr.folder) {
+     next
+    }
+    
+    ## copy raw BAP Landsat file for the year of interest (2010 for BOREAL, varying year for NONBOREAL) to compute TC
+    cmd <- sprintf('relative.path <- file.path("UTM_%s", "Results", "proxy_values", fsep = .Platform$file.sep)', zone.nr)  
+    eval(parse(text=cmd))
+    target.dir <- file.path(local.dir, relative.path, fsep = .Platform$file.sep)
+    dir.create(target.dir, showWarnings = F, recursive = T)
+    
+    cmd <- sprintf('file.to.copy <- file.path("%s", relative.path, "SRef_UTM%s_%d_proxy_v2", fsep = .Platform$file.sep)', dn, zone.nr, year)
+    eval(parse(text=cmd))
+    file.to.copy.hdr <- paste (file.to.copy, '.hdr', sep = "")
+    file.to.copy.dat <- paste (file.to.copy, '.dat', sep = "")
+    files.to.copy <- list(file.to.copy.hdr, file.to.copy.dat)
+    ## TO TEST SCRIPT
+    # files.to.copy <- list(file.to.copy.hdr)
+    ## TO TEST SCRIPT
+    
+    if ( all(file.exists(unlist(files.to.copy))) ) {
      file.copy(from=files.to.copy, to=target.dir, overwrite = TRUE, recursive = FALSE, copy.mode = TRUE)
-   } else {
+    } else {
      stop(paste ("Missing file:", file.to.copy, sep = " "))
      list.missing.files <- append(list.missing.files, file.to.copy)
-   }
-   
-   ## copy change metrics files
-   cmd <- sprintf('relative.path <- file.path("UTM_%s", "Results", "Change_metrics", fsep = .Platform$file.sep)', zone.nr)  
-   eval(parse(text=cmd))
-   target.dir <- file.path(local.dir, relative.path, fsep = .Platform$file.sep)
-   dir.create(target.dir, showWarnings = F, recursive = T)
-  
-   for (var in cng.var.names.long) {
-     cmd <- sprintf('file.to.copy <- file.path("%s", relative.path, "SRef_%s_%s", fsep = .Platform$file.sep)', dn, zone.nr, var)
-     eval(parse(text=cmd))
-     
-     file.to.copy.hdr <- paste (file.to.copy, '.hdr', sep = "")
-     file.to.copy.dat <- paste (file.to.copy, '.dat', sep = "")
-     files.to.copy <- list(file.to.copy.hdr, file.to.copy.dat)
-     ## TO TEST SCRIPT
-     # files.to.copy <- list(file.to.copy.hdr)
-     ## TO TEST SCRIPT
-     
-     if ( all(file.exists(unlist(files.to.copy))) ) {
+    }
+    
+    ## copy change metrics files
+    cmd <- sprintf('relative.path <- file.path("UTM_%s", "Results", "Change_metrics", fsep = .Platform$file.sep)', zone.nr)  
+    eval(parse(text=cmd))
+    target.dir <- file.path(local.dir, relative.path, fsep = .Platform$file.sep)
+    dir.create(target.dir, showWarnings = F, recursive = T)
+    
+    for (var in cng.var.names.long) {
+      
+      cmd <- sprintf('file.to.copy <- file.path("%s", relative.path, "SRef_%s_%s", fsep = .Platform$file.sep)', dn, zone.nr, var)
+      eval(parse(text=cmd))
+      
+      file.to.copy.hdr <- paste (file.to.copy, '.hdr', sep = "")
+      file.to.copy.dat <- paste (file.to.copy, '.dat', sep = "")
+      files.to.copy <- list(file.to.copy.hdr, file.to.copy.dat)
+      ## TO TEST SCRIPT
+      # files.to.copy <- list(file.to.copy.hdr)
+      ## TO TEST SCRIPT
+      
+      if ( all(file.exists(unlist(files.to.copy))) ) {
        file.copy(from=files.to.copy, to=target.dir, overwrite = TRUE, recursive = FALSE, copy.mode = TRUE)
-     } else {
+      } else {
        stop(paste ("Missing file:", file.to.copy, sep = " "))
        list.missing.files <- append(list.missing.files, file.to.copy)
-     }
+      }
      
-   }
-   
-   ## copy change attribution file
-   cmd <- sprintf('relative.path <- file.path("UTM_%s", "Results", "change_attribution", fsep = .Platform$file.sep)', zone.nr)  
-   eval(parse(text=cmd))
-   target.dir <- file.path(local.dir, relative.path, fsep = .Platform$file.sep)
-   dir.create(target.dir, showWarnings = F, recursive = T)
-   
-   cmd <- sprintf('file.to.copy <- file.path("%s", relative.path, "UTM%s_Change_attribution_complete", fsep = .Platform$file.sep)', dn, zone.nr)
-   eval(parse(text=cmd))
-   file.to.copy.hdr <- paste (file.to.copy, '.hdr', sep = "")
-   file.to.copy.dat <- paste (file.to.copy, '.dat', sep = "")
-   files.to.copy <- list(file.to.copy.hdr, file.to.copy.dat)
-   ## TO TEST SCRIPT
-   # files.to.copy <- list(file.to.copy.hdr)
-   ## TO TEST SCRIPT
-   
-   if ( all(file.exists(unlist(files.to.copy))) ) {
-     file.copy(from=files.to.copy, to=target.dir, overwrite = TRUE, recursive = FALSE, copy.mode = TRUE)
-   } else {
-     stop(paste ("Missing file:", file.to.copy, sep = " "))
-     list.missing.files <- append(list.missing.files, file.to.copy)
-   }
+    }
+    
+    ## copy change attribution file
+    cmd <- sprintf('relative.path <- file.path("UTM_%s", "Results", "change_attribution", fsep = .Platform$file.sep)', zone.nr)  
+    eval(parse(text=cmd))
+    target.dir <- file.path(local.dir, relative.path, fsep = .Platform$file.sep)
+    dir.create(target.dir, showWarnings = F, recursive = T)
+    
+    cmd <- sprintf('file.to.copy <- file.path("%s", relative.path, "UTM%s_Change_attribution_complete", fsep = .Platform$file.sep)', dn, zone.nr)
+    eval(parse(text=cmd))
+    file.to.copy.hdr <- paste (file.to.copy, '.hdr', sep = "")
+    file.to.copy.dat <- paste (file.to.copy, '.dat', sep = "")
+    files.to.copy <- list(file.to.copy.hdr, file.to.copy.dat)
+    ## TO TEST SCRIPT
+    # files.to.copy <- list(file.to.copy.hdr)
+    ## TO TEST SCRIPT
+    
+    if ( all(file.exists(unlist(files.to.copy))) ) {
+      file.copy(from=files.to.copy, to=target.dir, overwrite = TRUE, recursive = FALSE, copy.mode = TRUE)
+    } else {
+      stop(paste ("Missing file:", file.to.copy, sep = " "))
+      list.missing.files <- append(list.missing.files, file.to.copy)
+    }
   
   }
   
@@ -388,4 +391,32 @@ maps_int_2_contin <- function(integer.dt, multipl) {
     contin.df[, i] <- integer.dt[, i, with=FALSE]/multipl[[i]]
   }
   return(as.data.table(contin.df)) 
+}
+
+#### apply_regr_Bater -----------------------------------------------------------
+## apply regression equations by C. Bater with wrong and correct ("_OK") parameters
+apply_regr_Bater <- function(Lhmean, Lhcv, CC2m){
+  res <- list()
+  res$gross_stem_volume <- (exp(-2.79765751572683 + (1.41191094622928 * log(Lhmean)) + (0.312863439001814 * log(Lhcv)) + (0.289096963599021 * log(CC2m))) * 1.0401) * (25**2/20**2)
+  res$gross_stem_volume_OK <- (exp(-2.79765751572683 + (1.67886899486541 * log(Lhmean)) + (0.312863439001814 * log(Lhcv)) + (0.289096963599021 * log(CC2m))) * 1.0401) * (25**2/20**2)
+  res$total_biomass <- (exp(4.10601031545514 + (1.67886899486541 * log(Lhmean)) + (0.215883875434527 * log(Lhcv)) + (0.272607747427907 * log(CC2m))) * 1.0376) * (25**2/20**2)
+  res$total_biomass_OK <- (exp(4.10601031545514 + (1.41191094622928 * log(Lhmean)) + (0.215883875434527 * log(Lhcv)) + (0.272607747427907 * log(CC2m))) * 1.0376) * (25**2/20**2)
+  return(res)
+}
+
+#### reshape_save -----------------------------------------------------------
+## reshape and save temporal predictions
+reshape_save <- function(melted.preds, pred.values.dir, ch.type, meth, targ.to.reshape, mapped.years, ecoz.code, ecoz.name) {
+  for (targ in targ.to.reshape) {
+    
+    ## Reshape RF data to have one row per pixel (pixID) and one column per year and then add ecozone ID
+    predictions <- reshape(melted.preds[, c("pixID", "Year", targ), with=FALSE], idvar = "pixID", timevar = "Year", direction = "wide")
+    setnames(predictions, c('pixID', as.character(mapped.years)))
+    predictions[, ecozone:=ecoz.code]
+    
+    ## Save in a file with name varying wrt target and ecozone
+    file.name.melted.predictions <- file.path(pred.values.dir, sprintf("%s_%s_%s_%s.csv", ch.type, meth, targ, gsub(' ', '', ecoz.name)), fsep = .Platform$file.sep)
+    fwrite(predictions, file.name.melted.predictions)
+    
+  }
 }

@@ -1,6 +1,6 @@
 """
-Project Name: NationalImputationForestAttributes
-Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hoabart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
+Project Name: NationalMappingForestAttributes
+Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hobart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
 File Name: Functions_NatMapping_Python.py                          
 Objective: Define Python functions to make available to all py scripts.
 """

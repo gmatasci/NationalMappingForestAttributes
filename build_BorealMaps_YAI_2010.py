@@ -40,12 +40,18 @@ UTM_subdir_key = "UTM_*" ## construct search key with variable parts replaced by
 
 log_file_path = os.path.join(proj_dir, 'log_build_BorealMaps_YAI_2010.txt')
 
-input_mxd = os.path.join(proj_dir, r'empty_Boreal_YAI_2010.mxd')  ## path to empty mxd that has to have a scale bar (will adapt automatically) and bookmarks already set
-output_mxd =  os.path.join(proj_dir, r'Boreal_YAI_2010.mxd')  ## path to final mxd to save results
+# input_mxd = os.path.join(proj_dir, r'empty_Boreal_YAI_2010.mxd')  ## path to empty mxd that has to have a scale bar (will adapt automatically) and bookmarks already set
+# output_mxd =  os.path.join(proj_dir, r'Boreal_YAI_2010.mxd')  ## path to final mxd to save results
+input_mxd = os.path.join(proj_dir, r'empty_Boreal_YAI_2010_inset.mxd')  ## path to empty mxd that has to have a scale bar (will adapt automatically) and bookmarks already set
+output_mxd =  os.path.join(proj_dir, r'Boreal_YAI_2010_inset_green.mxd')  ## path to final mxd to save results
+# output_mxd =  os.path.join(proj_dir, r'Boreal_YAI_2010_inset_redgreen.mxd')  ## path to final mxd to save results
+# output_mxd =  os.path.join(proj_dir, r'Boreal_YAI_2010_inset_brownblue.mxd')  ## path to final mxd to save results
 
 new_empty_gr_lyr_path = os.path.join(lyrs_dir, r'NewGroupLayer.lyr')  ## path to empty layer file to be loaded to initialize each group
 mask_lyr_path = os.path.join(lyrs_dir, r'Mask_4_TreedClasses.lyr')
-attr_lyr_srckey = os.path.join(lyrs_dir, '*_contin_*.lyr')
+attr_lyr_srckey = os.path.join(lyrs_dir, '*_contin_*_green.lyr')
+# attr_lyr_diverging_srckey = os.path.join(lyrs_dir, '*_contin_*_redgreen.lyr')
+# attr_lyr_diverging_srckey = os.path.join(lyrs_dir, '*_contin_*_brownblue.lyr')
 
 layer_ref_name = 'Inverse_Boreal_CAN'   ## name of shp with which to mask out the raster layers with the maps
 

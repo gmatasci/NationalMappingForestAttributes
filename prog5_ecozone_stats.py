@@ -1,6 +1,6 @@
 """
 Project Name: NationalMappingForestAttributes
-Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hoabart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
+Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hobart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
 File Name: prog5_ecozone_stats.py                            
 Objective: Compute descriptive stats by ecozone over the entire boreal for all the mapped attributes
 """
