@@ -9,6 +9,7 @@
 ## STILL TO DO:
 
 # Prior to actual run:
+# - load correct param_file
 # - set params2$copy.data <- T
 # - check params2$fitted.data
 # - check copying on .dat and not on .hdr check ## TO TEST SCRIPT in Functions_NatMapping_R.R
@@ -19,7 +20,6 @@
 # - check parameters
 # - delete all UTMzones folders in Landsat_dir E:\NTEMS otherwise copy_paste_UTMdata() will not be run
 # - uncomment final unlink() to delete copied folders
-# - check function copy_paste copies .dat files
 
 ## SOLVED:
 # -V why weights = FALSE ? -- was wrong in Harolds version: should be set as TRUE to have weighted averages
@@ -81,6 +81,7 @@ print('Prog2: explanatory variables extraction')
 
 rm(list=ls()) ## clear all variables
 
+# param_file = "D:/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR_NationalMappingForestAttributes/wkg_BOREAL/AllUTMzones_paramsGL.Rdata"
 param_file = "D:/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR_NationalMappingForestAttributes/wkg/AllUTMzones_paramsGL.Rdata"
 load(param_file)
 
@@ -93,7 +94,7 @@ params2 <- list()
 # params2$copy.data <- F   ## wheter or not to copy the data from remot disks (set to True for actual run)
 params2$copy.data <- T
 
-# XXXXXXXXXXX TODEL XXXXXXXXXXXX
+# XXXXXXXXXXX TODEL XXXXXXXXXX
 # paramsGL$zones <- c("UTM10S", "UTM12S")
 # XXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
@@ -217,7 +218,7 @@ for (ls in 1:length(params2$lidar.sources)) {
     if (params2$copy.data) {
       
       ## first delete folder after having read the data and make room for the next zone's data
-      # unlink(temp.dir, recursive = T, force = T)
+      unlink(temp.dir, recursive = T, force = T)
       
       log.copy.paste <- copy_paste_UTMdata(params2$disk.names, zone, zone.nr, year, year.cng.input.names.lg, temp.dir)
       if (length(log.copy.paste$list.missing.files)>0) {
@@ -242,14 +243,18 @@ for (ls in 1:length(params2$lidar.sources)) {
   
     ## Landsat bands for the year of interest (6 layers), TC layer will be computed later (first for TRN/VAL and later for all Canada when mapping)
     if (!params2$fitted.data) {
+      ## Regular rasters
       cmd <- sprintf('Bands <- brick(file.path("%s", "UTM_%s", "Results", "proxy_values", "SRef_UTM%s_%d_proxy_v2.dat", fsep = .Platform$file.sep))', temp.dir, zone.nr, zone.nr, year)  
     } else {
       if (lidar.source == "BOREAL" ) {
+        ## Fitted 2010 data for BOREAL transect
         cmd <- sprintf('Bands <- brick(file.path("%s", "plots_crown", "proxies", "UTM%s_proxy_plots_crown.dat", fsep = .Platform$file.sep))', params2$fitted.proxies.dir, zone.nr)  
       } else {
         if (zone == 'CR08') {
+          ## Fitted 2008 data for CR dataset
           cmd <- sprintf('Bands <- brick(file.path("%s", "plots_crown_10", "proxies", "UTM10S_proxy_plots_crown_CR08.dat", fsep = .Platform$file.sep))',  params2$fitted.proxies.dir)  
         } else {
+          ## Fitted data for all the other NONBOREAL datasets (other years)
           cmd <- sprintf('Bands <- brick(file.path("%s", "plots_crown_10", "proxies", "UTM10S_proxy_plots_crown_noCR08.dat", fsep = .Platform$file.sep))',  params2$fitted.proxies.dir)  
         }
       }
@@ -446,7 +451,7 @@ if (!params2$fitted.data) {
 }
 
 ## ultimately delete the temp folder
-# unlink(temp.dir, recursive = T, force = T)
+unlink(temp.dir, recursive = T, force = T)
 
 
 #### PRINT LOGS ---------------------------------------------------------

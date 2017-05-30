@@ -22,11 +22,12 @@
 
 #### INIT --------------------------------------------------------------------
 
-print('Prog4c: boxplots by ecozone') 
+print('Prog5: boxplots by ecozone') 
 
 rm(list=ls())
 
-param_file <- "D:/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR_NationalMappingForestAttributes/wkg/AllUTMzones_paramsGL.Rdata"
+# param_file <- "D:/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR_NationalMappingForestAttributes/wkg/AllUTMzones_paramsGL.Rdata"
+param_file <- "D:/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR_NationalMappingForestAttributes/wkg_BOREAL/AllUTMzones_paramsGL.Rdata"
 load(param_file)
 
 param_file_prog2 = file.path(base_wkg_dir, 'AllUTMzones_params2.Rdata', fsep = .Platform$file.sep) 
@@ -47,7 +48,7 @@ params5$stats.vect <- c('mean', '10%', '25%', '50%', '75%', '90%')
 # params5$targ.names.lg <- list("elev_mean", "elev_stddev", "elev_cv", "elev_p95", "percentage_first_returns_above_2m", "percentage_first_returns_above_mean", "loreys_height", "basal_area", "gross_stem_volume", "total_biomass")
 params5$targ.names.lg <- list("gross_stem_volume", "total_biomass")
 
-params5$ylims <- list(c(0, 135), c(0, 270))
+params5$ylims <- list(c(0, 260), c(0, 150))
 
 params5$fill.color.vect <- c('chocolate1', 'olivedrab1')
 params5$mapped.ecozones <- list("Boreal Cordillera", "Boreal Plains", "Boreal Shield East", "Boreal Shield West", "Hudson Plains",

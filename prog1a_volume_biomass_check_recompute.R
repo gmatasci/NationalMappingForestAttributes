@@ -29,12 +29,10 @@ source("D:/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR_NationalMap
 
 params1a <- list()
 
-params1a$csv.dir.name.forest.attr.OK <- 'plot_inventory_attributes2_OK'
+params1a$csv.dir.name.forest.attr.OK <- 'plot_inventory_attributes2'
+params1a$csv.dir.name.forest.attr.KO <- 'plot_inventory_attributes2_WRONG_VOL_BIOM'
 params1a$outfile.dir <- "D:/Research/ANALYSES/NationalMappingForestAttributes/VolumeCheck"
 params1a$outfile.name <- "RMSEs_Bater.rds"
-
-param_file_prog2 = file.path(base_wkg_dir, 'AllUTMzones_params2.Rdata', fsep = .Platform$file.sep)
-save(params2, file = param_file_prog2)
 
 #### LOAD PACKAGES ----------------------------------------------------------
 
@@ -81,8 +79,7 @@ RMSEs <- foreach (z = 1:length(paramsGL$zones), .combine='rbind', .packages=list
   ## WHEN NOT USING FOREACH, TESTING PHASE
   
   zone <- paramsGL$zones[z]
-  wkg_dir <- file.path(base_wkg_dir, zone, fsep = .Platform$file.sep)
-  
+
 #### READ & CHECK FILES -----------------------------------------------------
   
   ## read lidar veg metrics database (metrics from first returns above 2m)
@@ -91,7 +88,7 @@ RMSEs <- foreach (z = 1:length(paramsGL$zones), .combine='rbind', .packages=list
   setkey(lidar.metrics.1streturns, unique_id)
   
   ## read biomass/inventory attributes database
-  infile <- file.path(csv.dir, 'plot_inventory_attributes2', paste(zone, csv.file.name.forest.attr, sep = ''), fsep=.Platform$file.sep)
+  infile <- file.path(csv.dir, params1a$csv.dir.name.forest.attr.KO, paste(zone, csv.file.name.forest.attr, sep = ''), fsep=.Platform$file.sep)
   lidar.metrics.forest.attributes <- fread(infile, header=TRUE, sep=",")
   id_order <- copy(lidar.metrics.forest.attributes$unique_id)
   setkey(lidar.metrics.forest.attributes, unique_id)
@@ -118,10 +115,10 @@ RMSEs <- foreach (z = 1:length(paramsGL$zones), .combine='rbind', .packages=list
   outfile <- file.path(csv.dir.forest.attr.OK, paste(zone, csv.file.name.forest.attr, sep = ''), fsep=.Platform$file.sep)
   fwrite(lidar.metrics.forest.attributes, outfile)
 
-  c( sqrt(sum((res$gross_stem_volume - metrics$gross_stem_volume)**2)/nrow(metrics)), 
-     sqrt(sum((res$gross_stem_volume_OK - metrics$gross_stem_volume)**2)/nrow(metrics)), 
-     sqrt(sum((res$total_biomass - metrics$total_biomass)**2)/nrow(metrics)),
-     sqrt(sum((res$total_biomass_OK - metrics$total_biomass)**2)/nrow(metrics)))
+  c(sqrt(sum((res$gross_stem_volume - metrics$gross_stem_volume)**2)/nrow(metrics)), 
+    sqrt(sum((res$gross_stem_volume_OK - metrics$gross_stem_volume)**2)/nrow(metrics)), 
+    sqrt(sum((res$total_biomass - metrics$total_biomass)**2)/nrow(metrics)),
+    sqrt(sum((res$total_biomass_OK - metrics$total_biomass)**2)/nrow(metrics)))
 
 }
 

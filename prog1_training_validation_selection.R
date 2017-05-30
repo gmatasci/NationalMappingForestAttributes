@@ -14,6 +14,7 @@
 ## STILL TO DO:
 
 # Prior to actual run:
+# - load correct param_file
 # - use foreach
 # - check no redefinition of paramsGL$zones 
 # - check parameters
@@ -52,6 +53,7 @@ print('Prog1, TRN/VAL splitting')
 
 rm(list=ls()) # clear all variables
 
+# param_file = "D:/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR_NationalMappingForestAttributes/wkg_BOREAL/AllUTMzones_paramsGL.Rdata"
 param_file = "D:/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR_NationalMappingForestAttributes/wkg/AllUTMzones_paramsGL.Rdata"
 load(param_file)
 
@@ -64,11 +66,10 @@ load(param_file)
 
 params1 <- list()
 
-# params1$csv.dir.name.forest.attr <- 'plot_inventory_attributes2'
-params1$csv.dir.name.forest.attr <- 'plot_inventory_attributes2_OK'
+params1$csv.dir.name.forest.attr <- 'plot_inventory_attributes2'
 
 params1$lidar.sources <- c("BOREAL", "NONBOREAL")
-# params1$lidar.sources <- c("NONBOREAL")  ## options: c("BOREAL", "NONBOREAL") but dont use BOREAL yet, not to overwrite files used for 2010 mapping (1st study)
+# params1$lidar.sources <- c("BOREAL")
 
 params1$transect.names <- c("AFRF", "CR04", "CR08", "MK10", "Quesnel", "Tofino")
 # params1$transect.names <- c("CR04", "CR08")
@@ -80,7 +81,7 @@ params1$trn.pct <- 0.75   ## proportion of training samples in the trn/val split
 
 params1$targ.names.lg <- c("elev_mean", "elev_stddev", "elev_cv", "elev_p95", "percentage_first_returns_above_2m", "percentage_first_returns_above_mean", "loreys_height","basal_area","gross_stem_volume","total_biomass")
 
-param_file_prog1 = file.path(base_wkg_dir, 'AllUTMzones_params1CAN.Rdata', fsep = .Platform$file.sep) 
+param_file_prog1 = file.path(base_wkg_dir, 'AllUTMzones_params1.Rdata', fsep = .Platform$file.sep) 
 save(params1, file = param_file_prog1)
 
 #### LOAD PACKAGES ----------------------------------------------------------
@@ -115,7 +116,7 @@ UTMzone.subdir <- file.path(base_figures_dir, "Histograms_UTMzone_level", "Elev_
 if (! file.exists(UTMzone.subdir)){dir.create(UTMzone.subdir, showWarnings = F, recursive = T)}
 
 ## create and write 1st line of log file
-log.file <- file.path(base_wkg_dir, "log_prog1CAN.txt", fsep = .Platform$file.sep)
+log.file <- file.path(base_wkg_dir, "log_prog1.txt", fsep = .Platform$file.sep)
 file.create(log.file)
 fileConn <- file(log.file, "a")  ## open connection to file and specify we want to append new lines
 writeLines(sprintf("Percentage of plots filtered bc elev_p95 > %s m:", params1$elev.thresh), fileConn)  

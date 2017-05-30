@@ -420,3 +420,14 @@ reshape_save <- function(melted.preds, pred.values.dir, ch.type, meth, targ.to.r
     
   }
 }
+
+#### maj_vote_non_zero -----------------------------------------------------------
+## get majority class over vector, excluding zeros
+maj_vote_non_zero <- function(x) {
+  freq.tab.class <- names(sort(table(x), decreasing=T))
+  mv <- ifelse(freq.tab.class[1]=="0", 
+               as.numeric(freq.tab.class[2]), 
+               as.numeric(freq.tab.class[1])
+  )
+  return(mv)
+}

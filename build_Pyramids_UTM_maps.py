@@ -31,7 +31,7 @@ params = {}
 
 params['zones'] = np.arange(7, 22+1, 1)
 # params['zones'] = np.array([17, 18])
-params['zones'] = params['zones'][params['zones'] != 11]
+# params['zones'] = params['zones'][params['zones'] != 11]
 
 params['subzones'] = ['S', 'N']
 # params['subzones'] = ['S']
@@ -68,6 +68,7 @@ for idx_zone, zone in enumerate(params['zones']):
 
         ## Build pyramids for all .dat files in folder
         for layer in dat_files_list:
+            print(layer)
             arcpy.BuildPyramids_management(os.path.join(env.workspace, layer), skip_existing="SKIP_EXISTING")  ## do not create pyramids if they already exist
 
 print(toc(start_time))

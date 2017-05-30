@@ -1,7 +1,7 @@
 .Rproj.user
 .Rhistory
 .RData
-.pyc
+*.pyc
 
 FCIDs.docx
 OLD VERSIONS/

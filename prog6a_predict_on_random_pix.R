@@ -9,6 +9,7 @@
 # Prior to actual run:
 # - set appropriate FINAL_MODEL folder
 
+# - currently, in its parallel version, it works only with 1 method, YAI
 # - Uncomment lines with ## ---------- UNCOMMENT ------------ 
 # - ISSUE WITH BOREAL SHIELD WEST HAVING RANDOM TRENDS AND NOT STAIRS FOR YAI (see XXXXXXXXX)
 # -
@@ -48,28 +49,37 @@ source("D:/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR_NationalMap
 
 params6a <- list()
 
-params6a$subsetting <- T  ## to subset the dataset to a nr of samples = params6a$nr.pts.subset (for debugging in development phase)
-params6a$nr.pts.subset <- 2000
+params6a$subsetting <- T  ## to subset the dataset by a factor = params6a$data.subs.factor (for debugging in development phase or to work with smaller datasets)
+params6a$data.subs.factor <- 2
+params6a$nr.clusters <- 1   ## only works with 1 cluster and %do% in foreach()
+
 params6a$temporal.base.dir <- "E:/NTEMS/UTM_results/2017_02_27_SAMPLES_treed_changes_plots"  ## subdirectory to save files with predicted values
-params6a$temporal.data.types <- c("fitted", "raw")   ## type of temporal data to be analyzed: "raw" is the dataset with raw BAP proxy values, "fitted" is the dataset with fitted spectral trends
-# params6a$temporal.data.types <- c("fitted")
-params6a$change.types <-  c("always_treed", "fire", "harvesting")
-# TODEL params6a$focus.on.UTM.zone <- F  ## to filter data to just a given UTM zone (test for fitted metrics to have a fair comparison with same pixels involved)
-# TODEL params6a$UTM.zone <- '13S'   ## UTM zone to focus on
+
+# params6a$temporal.data.types <- c("raw", "fitted")   ## type of temporal data to be analyzed: "raw" is the dataset with raw BAP proxy values, "fitted" is the dataset with fitted spectral trends
+params6a$temporal.data.types <- c("fitted")
+
+# params6a$change.types <-  c("always_treed", "fire", "harvesting")
+params6a$change.types <-  c("fire", "harvesting")
+
 params6a$models.subdir <- "D:/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR_NationalMappingForestAttributes/FINAL_RUN/Models"  ## model subdirectory to load models from
-# TODEL params6a$subset.factor <- 4   ## to subset data to make it smaller, always applied bc we have too many samples
-# params6a$mapped.years <- seq(from=1984, to=2012)
-params6a$mapped.years <- seq(from=1984, to=1986)
+
+params6a$mapped.years <- seq(from=1984, to=2012)
+# params6a$mapped.years <- seq(from=1984, to=1986)
+
+params6a$methods <- list("YAI")
 # params6a$methods <- list("RF", "YAI")   ## has to be set as list("RF", "YAI"), that is both methods have to be run
-params6a$methods <- list("YAI")   ## has to be set as list("RF", "YAI"), that is both methods have to be run
+
 # params6a$mapped.ecozones <- list("Atlantic Maritime", "Boreal Cordillera", "Boreal Plains", "Boreal Shield East", "Boreal Shield West",
 #                                  "Hudson Plains", "Montane Cordillera", "Pacific Maritime", "Taiga Cordillera",
 #                                  "Taiga Plains", "Taiga Shield East", "Taiga Shield West")
 # params6a$ecozone.codes <- c(2, 3, 4, 5, 6, 7, 9, 11, 15, 16, 17, 18)
-# params6a$mapped.ecozones <- list("Boreal Plains", "Boreal Shield West", "Taiga Shield West")
-# params6a$ecozone.codes <- c(4, 6, 18)
-params6a$mapped.ecozones <- list("Boreal Shield West", "Boreal Plains")
-params6a$ecozone.codes <- c(6, 4)
+# params6a$mapped.ecozones <- list("Atlantic Maritime", "Boreal Cordillera", "Boreal Plains", "Boreal Shield East", "Boreal Shield West", "Montane Cordillera", "Pacific Maritime")
+# params6a$ecozone.codes <- c(2, 3, 4, 5, 6, 9, 11)
+params6a$mapped.ecozones <- list("Boreal Plains", "Boreal Shield East", "Pacific Maritime")
+params6a$ecozone.codes <- c(4, 5, 11)
+# params6a$mapped.ecozones <- list("Boreal Shield East", "Boreal Shield West")
+# params6a$ecozone.codes <- c(5, 6)
+
 params6a$targ.names.temporal.lg <- c("elev_p95", "percentage_first_returns_above_2m")
 
 param_file_prog6a = file.path(base_wkg_dir, 'AllUTMzones_params6a.Rdata', fsep = .Platform$file.sep)
@@ -117,14 +127,18 @@ tic <- proc.time() ## start clocking global time
 
 #### LOAD MODELS & READ DATA ------------------------------------------------
 
-load(file.path(params6a$models.subdir, "YAI.Rdata", fsep=.Platform$file.sep))
-load(file.path(params6a$models.subdir, "Ytrn.Rdata", fsep=.Platform$file.sep))
-
+pix.idx.list <- list()  ## initialize list containing subsampling indices (varying only by change.type and ecozone)
 for (temporal.data.type in params6a$temporal.data.types) {
+  
+  ## Load model files either in the "raw" or "fitted" folder
+  load(file.path(params6a$models.subdir, temporal.data.type, "YAI.Rdata", fsep=.Platform$file.sep))
+  load(file.path(params6a$models.subdir, temporal.data.type, "Ytrn.Rdata", fsep=.Platform$file.sep))
   
   print(sprintf("Temporal data: %s", temporal.data.type))
 
   for (change.type in params6a$change.types) {
+    
+    print(sprintf("Change type: %s", change.type))
     
     samples.dir <- file.path(params6a$temporal.base.dir, change.type, 'samples_u', fsep = .Platform$file.sep) 
     
@@ -153,14 +167,22 @@ for (temporal.data.type in params6a$temporal.data.types) {
       if (! file.exists(file.name)) {
         next
       }
-      pix.IDs <- fread(file.name, header = F)
+      pix.IDs.ecoz <- fread(file.name, header=F, verbose=F)
       
+      #### TO USE WITH FOR ON params6a$mapped.years ------------
       predictions.list <- lapply(1:length(params6a$methods), function(x) NULL)
       names(predictions.list) <- params6a$methods
+      #### TO USE WITH FOR ON params6a$mapped.years ------------
       
+      #### FOREACH ON params6a$mapped.years: not working because heavy model object has to be passed to each core, thus saturating RAM 
+      # nr.clusters <- round(length(params6a$mapped.years)/8)+1
+      # cl <- makeCluster(nr.clusters)
+      # registerDoParallel(cl)
+      # melted.preds.dt <- foreach(yr = 1:length(params6a$mapped.years), .combine='rbind', .packages=list.of.packages) %dopar% {   #add .verbose=T for more info when debugging
+      #### FOREACH ON params6a$mapped.years
       for (yr in 1:length(params6a$mapped.years)) {
-        
-        if (yr %% 2 != 0) {
+
+        if (yr %% 5 == 0) {
           print(params6a$mapped.years[yr])
         }
         
@@ -170,8 +192,24 @@ for (temporal.data.type in params6a$temporal.data.types) {
         } else {
           file.name <- file.path(predictors.dir, sprintf("%s_%s_%s.csv", ecozone.code, ecozone.name, params6a$mapped.years[yr]), fsep = .Platform$file.sep)
         }
+
+        yearly.predictors <- fread(file.name, header=T, verbose=F)
         
-        yearly.predictors <- fread(file.name, header = T)
+        ## Subsample the dataset by a factor params6a$data.subs.factor
+        if (params6a$subsetting) {   ## if subsampling is specified...
+          str.chType <- sprintf('%s_%s', change.type, ecozone.code)  ## element name to store/retrieve subsampling pixel indices: they only vary wrt change type and ecozone
+          if (yr == 1 & temporal.data.type == params6a$temporal.data.types[1]) {  ## generate random indices only for 1st year and for raw data, as all years and raw/fitted will refer to the same pixels
+            set.seed(paramsGL$global.seed)
+            pix.idx <- sample(1:nrow(yearly.predictors), round(nrow(yearly.predictors)/params6a$data.subs.factor))
+            pix.idx.list[[str.chType]] <- pix.idx   ## save list of inidices in a dynamic list
+          } else {   ## for the subsequent years or other data types
+            pix.idx <- pix.idx.list[[str.chType]]   ## retrieve indices from dynamic list
+          }
+        } else {  ## ...if not keep all the rows
+          pix.idx <- 1:nrow(yearly.predictors)
+        }
+        yearly.predictors <- yearly.predictors[pix.idx, ]
+        pix.IDs <- pix.IDs.ecoz[pix.idx, ]
         
         ## Change negative YrsSince_GrCh values back to positive
         yearly.predictors$YrsSince_GrCh <- abs(yearly.predictors$YrsSince_GrCh)
@@ -181,24 +219,6 @@ for (temporal.data.type in params6a$temporal.data.types) {
         ## Set unique pixel ID, with UTM zone info and index value
         yearly.predictors[, pixID:=sprintf('%s_%d', pix.IDs[[1]], pix.IDs[[2]])]
         yearly.predictors[, index:=NULL]
-
-        
-        # TODEL 
-        ## Subset to UTM zone of focus (where we have both raw and fitted temporal data)
-        # if (params6a$focus.on.UTM.zone){
-        #   UTMz <- unlist(strsplit(yearly.predictors$pixID, '_'))[2*(1:length(yearly.predictors$pixID))-1]
-        #   yearly.predictors <- yearly.predictors[UTMz==params6a$UTM.zone]
-        # }
-        # TODEL 
-        
-        # TODEL 
-        # ## Subsample according to params6a$subset.factor and keep indices fixed per year
-        # if (yr == 1) {
-        #   set.seed(paramsGL$global.seed)
-        #   idx.subsampling <- sample(c(T, F), size=nrow(yearly.predictors), prob=c(1/params6a$subset.factor, 1-(1/params6a$subset.factor)), replace=T)
-        # }
-        # yearly.predictors <- yearly.predictors[idx.subsampling, ]
-        # TODEL 
         
         ## Preprocess columns
         yearly.predictors[, seq(1,ncol(yearly.predictors)-1):= na.roughfix(yearly.predictors[, !colnames(yearly.predictors) == 'pixID', with=FALSE])] ## substitute NAs with column median
@@ -208,13 +228,6 @@ for (temporal.data.type in params6a$temporal.data.types) {
         samples.before <- nrow(yearly.predictors)
         yearly.predictors <- yearly.predictors[b1!=0 & b2!=0 & b3!=0 & b4!=0 & b5!=0 & b6!=0]
         nr.zero.samples.removed[ez, yr] <- samples.before - nrow(yearly.predictors)
-
-        ## Trick to be used in the testing phase only to have smaller datasets and a faster debugging
-        if (params6a$subsetting) {
-          set.seed(paramsGL$global.seed)
-          pix.idx <- sample(1:nrow(yearly.predictors), params6a$nr.pts.subset)
-          yearly.predictors <- yearly.predictors[pix.idx, ]
-        }
 
     #### RANDOM FOREST ---------------------------------------------------------------------
 
@@ -244,46 +257,71 @@ for (temporal.data.type in params6a$temporal.data.types) {
     #### YAIMPUTE -------------------------------------------------------------------
 
         if ("YAI" %in% params6a$methods) {  ## run only if "YAI" is specified in methods
-
-          Y.map.predicted.YAI <- data.table(rep(params6a$mapped.years[yr], nrow(yearly.predictors)))
           
-          ids.val.predicted <- as.data.table( newtargets(yai.rf, yearly.predictors[, stats3$final.predictors, with=FALSE], k=1)["neiIdsTrgs"] )
-          ids.val.predicted[, order:=seq(from=1, to=nrow(yearly.predictors[, stats3$final.predictors, with=FALSE]))]   ## add index telling the order of the samples before the merge
-          colnames(ids.val.predicted)[1] <- "Predicted_FCID"
-          Y.map.imputed <- merge(ids.val.predicted, Y.trn.to.assign, by.x="Predicted_FCID", by.y="FCID")
-          setkey(Y.map.imputed, order)   ## after the merge resort with respect to that index...
+          #### FOREACH ON 1 SPLIT OF yearly.predictors: temporary version working only with %do% and nr.clusters = 1
+          nr.rows <- nrow(yearly.predictors)
+          Y.map.predicted.YAI <- data.table(rep(params6a$mapped.years[yr], nr.rows))
+          nr.clusters <- params6a$nr.clusters
+          split.vect <- rep(1, nr.rows)   ## split dataframe into one chunk only
+          yearly.predictors.splits <- split(yearly.predictors, split.vect)
+          cl <- makeCluster(nr.clusters)
+          registerDoParallel(cl)
+          ## CHANGE TO %dopar% FOR PARALLEL (NOT WORKING)
+          Y.map.imputed <- foreach(split = 1:nr.clusters, .combine='rbind', .packages=list.of.packages) %do% {   #add .verbose=T for more info when debugging
+            ids.val.predicted <- as.data.table( newtargets(yai.rf, yearly.predictors.splits[[split]][, stats3$final.predictors, with=FALSE], k=1)["neiIdsTrgs"] )
+            ids.val.predicted[, order:=seq(from=1, to=nrow(yearly.predictors.splits[[split]][, stats3$final.predictors, with=FALSE]))]   ## add index telling the order of the samples before the merge
+            colnames(ids.val.predicted)[1] <- "Predicted_FCID"
+            Y.map.imputed.split <- merge(ids.val.predicted, Y.trn.to.assign, by.x="Predicted_FCID", by.y="FCID")
+            setkey(Y.map.imputed.split, order)   ## after the merge resort with respect to that index...
+          }
+          stopCluster(cl)
+          
           Y.map.imputed[, c("Predicted_FCID", "order"):=NULL]   ## ...and then remove it
 
           Y.map.predicted.YAI <- cbind(Y.map.predicted.YAI, Y.map.imputed)
 
           setnames(Y.map.predicted.YAI, c("Year", unlist(params3$targ.names.lg)))
           
+          #### TO USE WITH FOREACH ON params6a$mapped.years ------------
+          # cbind(pixID=yearly.predictors[,pixID], Y.map.predicted.YAI)
+          #### TO USE WITH FOREACH ON params6a$mapped.years ------------
+          
+          #### TO USE WITH FOR ON params6a$mapped.years ------------
           predictions.list$YAI <- rbind(predictions.list$YAI, list(Y.map.predicted.YAI))
+          #### TO USE WITH FOR ON params6a$mapped.years ------------
           
         } ## end if on YAI
       
-
       }  ## end for on params6a$mapped.years
       
+      #### TO USE WITH FOREACH ON params6a$mapped.years ------------
+      # stopCluster(cl)
+      # melted.predictions <- list()
+      # melted.predictions$YAI <- melted.preds.dt
+      #### TO USE WITH FOREACH ON params6a$mapped.years ------------
+      
+      #### TO USE WITH FOR ON params6a$mapped.years ------------
       ## Stitch together the list elements by column of lists
       melted.predictions <- lapply(predictions.list, function(x) rbindlist(x))
-      
+
       ## Add pixel ID replicated by year to later reshape the data with one row per pixel
       melted.predictions <- lapply(melted.predictions, cbind, pixID=rep(yearly.predictors[,pixID], length(params6a$mapped.years)))
+      #### TO USE WITH FOR ON params6a$mapped.years ------------
       
+      ## Apply reshape_save() function on every column of melted.predictions to obtain a dt with pixels in rows and years in columns (each row is a pixel attribute time-series)
       lapply(seq_along(melted.predictions), function(idx) reshape_save(melted.predictions[[idx]], predicted.values.dir, change.type, names(melted.predictions)[idx], params6a$targ.names.temporal.lg, params6a$mapped.years, ecozone.code, ecozone.name))
       
     }  ## end for on params6a$mapped.ecozones
     
     ## ---------- UNCOMMENT ------------
-    # zeroes.file <- file.path(params6a$temporal.base.dir, sprintf('ZeroSamplesRemovedByEcoByYear_%s.Rdata', temporal.data.type), fsep = .Platform$file.sep) 
-    # save(nr.zero.samples.removed, file = zeroes.file)
+    zeroes.file <- file.path(params6a$temporal.base.dir, sprintf('ZeroSamplesRemovedByEcoByYear_%s.Rdata', temporal.data.type), fsep = .Platform$file.sep) 
+    save(nr.zero.samples.removed, file = zeroes.file)
     ## ---------- UNCOMMENT ------------
     
     aberr.elev.file <- file.path(params6a$temporal.base.dir, sprintf('AberrElevByEcoByYear_%s.csv', temporal.data.type), fsep = .Platform$file.sep) 
     write.csv(pct.aberr.elev, aberr.elev.file, row.names=T)
   
-  }
+  }  ## end for on params6a$change.types
   
 }  ## end for on params6a$temporal.data.types
 

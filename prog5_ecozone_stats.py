@@ -53,11 +53,11 @@ params['zones'] = np.arange(7, 22+1, 1)
 params['subzones'] = ['S', 'N']
 # params['subzones'] = ['S']
 
-# params['ecozone_labels'] = OrderedDict([('Boreal Cordillera', 3), ('Boreal Plains', 4), ('Boreal Shield East', 5),
-#                                        ('Boreal Shield West', 6), ('Hudson Plains', 7), ('Taiga Cordillera', 15),
-#                                        ('Taiga Plains', 16), ('Taiga Shield East', 17), ('Taiga Shield West', 18)])
+params['ecozone_labels'] = OrderedDict([('Boreal Cordillera', 3), ('Boreal Plains', 4), ('Boreal Shield East', 5),
+                                       ('Boreal Shield West', 6), ('Hudson Plains', 7), ('Taiga Cordillera', 15),
+                                       ('Taiga Plains', 16), ('Taiga Shield East', 17), ('Taiga Shield West', 18)])
 # params['ecozone_labels'] = OrderedDict([('Boreal Cordillera', 3), ('Boreal Plains', 4)])
-params['ecozone_labels'] = OrderedDict([('Taiga Shield West', 18)])
+# params['ecozone_labels'] = OrderedDict([('Taiga Shield West', 18)])
 
 params['forest_recoding'] = [[20, 0], [31, 0], [32, 0], [33, 0], [40, 0], [50, 0], [80, 0], [100, 0],
                              [81, 1], [210, 1], [220, 1], [230, 1]]   ## format for Arcpy's Reclassify
@@ -74,11 +74,16 @@ params['ecozone_NFI_stats'].loc['Taiga Cordillera'] = 494.22, 8.86, 6442.88
 params['ecozone_NFI_stats'].loc['Taiga Plains'] = 2780.50, 0.16, 33601.17
 params['ecozone_NFI_stats'].loc['Taiga Shield'] = 2246.74, 14.92, 46292.88
 
+## OLD VALUES FOR WRONG VOLUME / BIOMASS
 # params['targ_fact'] = OrderedDict([('elev_mean', 1000), ('elev_stddev', 1000), ('elev_cv', 1000), ('elev_p95', 1000),
 #                                    ('percentage_first_returns_above_2m', 100), ('percentage_first_returns_above_mean', 100),
 #                                    ('loreys_height', 1000), ('basal_area', 100), ('gross_stem_volume', 100), ('total_biomass', 10)])
+# params['targ_fact'] = OrderedDict([('elev_mean', 1000), ('elev_p95', 1000), ('percentage_first_returns_above_2m', 100),
+#                                    ('loreys_height', 1000), ('basal_area', 100), ('gross_stem_volume', 100), ('total_biomass', 10)])
+## OLD VALUES FOR WRONG VOLUME / BIOMASS
+
 params['targ_fact'] = OrderedDict([('elev_mean', 1000), ('elev_p95', 1000), ('percentage_first_returns_above_2m', 100),
-                                   ('loreys_height', 1000), ('basal_area', 100), ('gross_stem_volume', 100), ('total_biomass', 10)])
+                                   ('loreys_height', 1000), ('basal_area', 100), ('gross_stem_volume', 10), ('total_biomass', 100)])
 
 aberr_zero_flag = 2**16-2  # flag with 65534 any aberrant attribute value (not to change the type of the array from uint16)
 nr_landsat_pix_2_ha = 30 * 30 / 10000
@@ -86,13 +91,13 @@ nr_landsat_pix_2_ha = 30 * 30 / 10000
 root_dir = r'D:\Research\ANALYSES\NationalMappingForestAttributes\WKG_DIR_NationalMappingForestAttributes'
 ntems_dir = r'E:\NTEMS'
 
-results_dir = os.path.join(root_dir, 'results', 'StatsByEcozone')
+results_dir = os.path.join(root_dir, 'results_BOREAL', 'StatsByEcozone')
 UTM_dir = os.path.join(ntems_dir, 'UTM_results')
 ecozones_dir = os.path.join(UTM_dir, 'UTMrasters_Ecozones')
 VLCE_dir = os.path.join(UTM_dir, 'UTMrasters_VLCE', '2010_overlap_free')
 non_overl_dir = os.path.join(UTM_dir, 'UTMrasters_non_overlapping_areas')
 boreal_dir = os.path.join(UTM_dir, 'UTMrasters_Brandt_Boreal')
-temp_dir = os.path.join(root_dir, 'wkg', 'temp')
+temp_dir = os.path.join(root_dir, 'wkg_BOREAL', 'temp')
 
 
 ## START ------------------------------------------------------------------------
@@ -104,18 +109,16 @@ start_time = tic()
 arcpy.CheckOutExtension("Spatial")
 arcpy.env.overwriteOutput = True
 
-log_file_path = os.path.join(root_dir, 'wkg', 'log_prog4c.txt')
+log_file_path = os.path.join(root_dir, 'wkg_BOREAL', 'log_prog5.txt')
 if os.path.exists(log_file_path):
     os.remove(log_file_path)
 logging.basicConfig(filename=log_file_path, level=logging.DEBUG)
-
-arcpy.env.workspace = temp_dir  # set temporary files directory (used when calling Reclassify(), etc.), could use arcpy.env.workspace = "in_memory"
 
 ## Delete if existing and create temp directory
 if os.path.exists(temp_dir):
     shutil.rmtree(temp_dir)
 os.makedirs(temp_dir)
-arcpy.env.workspace = temp_dir  # set temporary files directory (used when calling Reclassify(), etc.)
+arcpy.env.workspace = temp_dir  # set temporary files directory (used when calling Reclassify(), etc.), could use arcpy.env.workspace = "in_memory"
 
 ## Create results directory
 if not os.path.exists(results_dir):

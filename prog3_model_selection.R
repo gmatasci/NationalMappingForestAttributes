@@ -8,6 +8,7 @@
 ## STILL TO DO:
 
 # Prior to actual run:
+# - load correct param_file
 # - remove redefinition of base_wkg_dir
 # - check final UTM zones to sample (now 17 with the removal of 11S)
 # - params3$run.MS <- T     
@@ -75,6 +76,7 @@ print('Prog3: descriptive stats/plots, model selection and model assessment')
 rm(list=ls())
 
 param_file <- "D:/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR_NationalMappingForestAttributes/wkg/AllUTMzones_paramsGL.Rdata"
+# param_file <- "D:/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR_NationalMappingForestAttributes/wkg_BOREAL/AllUTMzones_paramsGL.Rdata"
 load(param_file)
 
 param_file_prog2 = file.path(base_wkg_dir, 'AllUTMzones_params2.Rdata', fsep = .Platform$file.sep) 
@@ -88,32 +90,38 @@ params3 <- list()
 
 ## Actual parameters to be used
 
+params3$subsetting <- F   ## to subset the dataset to a nr of samples = params3$nr.pts.plot (for debugging in development phase)
+
 params3$lidar.sources <- c("BOREAL", "NONBOREAL")
+# params3$lidar.sources <- c("BOREAL")
 
-params3$by.UTM.Ch_attr <- T   ## set to True if one want to run only stats/graphs by ecozone (most meaningful split)
+# params3$fitted.data <- F
+params3$fitted.data <- T
 
-params3$subsetting <- T   ## to subset the dataset to a nr of samples = params3$nr.pts.plot (for debugging in development phase)
-
-params3$fitted.data <- F
-# params3$fitted.data <- T
+params3$no.temporal.predictors <- T
+# params3$temporal.predictors.to.remove <- c("YrsSince_GrCh", "Ch_attr")   ## will be removed after having loaded the stats3 object with the list of final predictors from the raw data run
+params3$temporal.predictors.to.remove <- c("Ch_attr") 
 
 params3$filterCC <- F    ## whether to filter the datasets wrt canopy cover 
 params3$filterCC.thresh <- 10     ## thereshold on canopy cover pct to use
 
 params3$methods <- list("YAI") ## accepts "RF" and/or "YAI", used to run analyses only for the specified methods
+
 params3$run.checks <- F   ## whether to run checks for duplicate FCIDs, run only once, as of 06/06/2016 all is OK
-params3$run.descr.stats <- T  ## whether to run descriptive stats block
+params3$run.descr.stats <- F  ## whether to run descriptive stats block
 params3$run.MS <- F     ## whether to run model selection block
 params3$run.MA <- T    ## whether to run model assessment block (if set to FALSE, the script loads the prediction files saved in the last run in results_dir, to be used to change the plots based on the same results though)
 params3$run.SG <- T    ## whether to run stats & graphs block
+params3$by.UTM.Ch_attr <- F   ## set to F if one wants to run stats & graphs block only by ecozone (most meaningful split)
 params3$run.dist.cov <- F     ## whether to run distortion of covariance analysis block
-params3$parallel.RF.MS <- T    ## whether to run RF in parallel in the model selection block
+params3$parallel.RF.MS <- F    ## whether to run RF in parallel in the model selection block
 params3$parallel.RF.MA <- F     ## whether to run RF in parallel in the model assessment block (variable importance is not available after having run the RF in parallel, so is set to FALSE) 
-params3$ntree.MS <- 100     ## nr of RF trees in the model selection phase (ideally 500 but then YaImp, which cannot be run in parallel) it takes ages
-params3$ntree.MA <- 100     ## nr of RF trees in the model assessment phase (very marginal improvements going higher than that, will cause bigger models and less priority on Westgrid for the mapping phase) 
+
 params3$LongLat.val <- F   ## wheter to run the validation along longitudinal or latitudinal chunks of the transect 
 params3$LongLat.val.nr.chunks <- 10   ##  number of chunks for long/lat validation
 
+params3$ntree.MS <- 100     ## nr of RF trees in the model selection phase (ideally 500 but then YaImp, which cannot be run in parallel) it takes ages
+params3$ntree.MA <- 100     ## nr of RF trees in the model assessment phase (very marginal improvements going higher than that, will cause bigger models and less priority on Westgrid for the mapping phase) 
 params3$mtry <- 'sqrt_nr_var'   ## how to set mtry parameter in RF
 params3$nodesize <- 5       ## nodesize parameter of RF (5 is default for regression)
 params3$plot.importance <- T   ## wheter to plot RF variable importance values
@@ -227,9 +235,18 @@ if (!params3$fitted.data) {
   models.subdir <- file.path(base_wkg_dir, "Models_FITTED", fsep = .Platform$file.sep)
 }
 
+if (params3$no.temporal.predictors) {
+  figures_dir <- sprintf('%s_NOTEMPORAL', figures_dir)
+  results_dir <- sprintf('%s_NOTEMPORAL', results_dir)
+  models.subdir <- sprintf('%s_NOTEMPORAL', models.subdir)
+}
+
 ## subdirectory to save model assessment plots
 Assess.CAN.subdir <- file.path(figures_dir, "Assessment_CAN_level", fsep = .Platform$file.sep)
 if (! file.exists(Assess.CAN.subdir)){dir.create(Assess.CAN.subdir, showWarnings = F, recursive = T)}
+
+## create results directory for FITTED data (not present before)
+if (! file.exists(results_dir)){dir.create(results_dir, showWarnings = F, recursive = T)}
 
 ## create model subdirectories to save models for later use (in mapping phase)
 if (! file.exists(models.subdir)){dir.create(models.subdir, showWarnings = F, recursive = T)}
@@ -339,8 +356,13 @@ if (params3$filterCC) {
   write.csv(Y.trn.val, file = file.path(base_wkg_dir, sprintf("Y_trn_val_filtr_cc%spct.csv", params3$filterCC.thresh), sep = ''))
 } else {
   ## Write final filtered datasets
-  write.csv(X.trn.val, file = file.path(base_wkg_dir, "X_trn_val.csv", sep = ''))
-  write.csv(Y.trn.val, file = file.path(base_wkg_dir, "Y_trn_val.csv", sep = ''))
+  if (!params3$fitted.data) {
+    write.csv(X.trn.val, file = file.path(base_wkg_dir, "X_trn_val.csv", sep = ''))
+    write.csv(Y.trn.val, file = file.path(base_wkg_dir, "Y_trn_val.csv", sep = ''))
+  } else {
+    write.csv(X.trn.val, file = file.path(base_wkg_dir, "X_trn_val_fitted.csv", sep = ''))
+    write.csv(Y.trn.val, file = file.path(base_wkg_dir, "Y_trn_val_fitted.csv", sep = ''))
+  }
 }
 
 ## save stats about removed samples and nr of sample from each Ecozone, UTM zone and Ch_attr
@@ -611,7 +633,7 @@ if (params3$run.MS) {  ## run model selection phase only if we want to select be
     print(sprintf('Predictors group: %s', predictor.gr))
     temp.tic <- proc.time() # start clocking time for each subset
 
-    ## switch-case specifying different predictor combinaitons
+    ## switch-case specifying different predictor combinations
     if (predictor.gr == "all") {
       predictors <- unlist(params2$pred.names.sh)[!unlist(params2$pred.names.sh) %in% params3$predictors.to.rem.prior.know]  ## always remove the a priori excluded variables...
     } else if (predictor.gr == "SKstudy") {
@@ -803,24 +825,41 @@ if (params3$run.MS) {  ## run model selection phase only if we want to select be
     temp.toc <- proc.time()-temp.tic[3]
     print(paste(predictor.gr, "elapsed time:", seconds_to_period(temp.toc[3])))
       
-  }
+  }  ## end for on params3$predictor.groups
   
   RES_MS.df <- t(RES_MS.df)  ## transpose df for better visualization and save it as csv file
   write.csv(RES_MS.df, file = file.path(results_dir, sprintf("RES_MS_%s.csv", params3$metrics.MS), sep = ''))
 
   stats3$RES_MS.df <- RES_MS.df  ## add table to stats list to be saved
   
-}
+}  ## end if on params3$run.MS
 
 #### MODEL ASSESSMENT ---------------------------------------------------------------------------
 
-## specify best set of predictors found after model selction phase (params3$best.predictor.group): allow selection only among plausible models (e.g. Rthresh_0p8 discards Latitude)
-if (params3$best.predictor.group == "all") {
-  predictors <- unlist(params2$pred.names.sh)[!unlist(params2$pred.names.sh) %in% params3$predictors.to.rem.prior.know]
-} else if (params3$best.predictor.group == "Rthresh_0p9") {
-  predictors <- unlist(params2$pred.names.sh)[!unlist(params2$pred.names.sh) %in% c(params3$predictors.to.rem.prior.know, stats3$redund.pred.names.p90)]
-} else if (params3$best.predictor.group == "Rthresh_0p95") {
-  predictors <- unlist(params2$pred.names.sh)[!unlist(params2$pred.names.sh) %in% c(params3$predictors.to.rem.prior.know, stats3$redund.pred.names.p95)]
+## If using raw data set predictors as those not being to remove a priori nor being redundant...
+if (!params3$fitted.data) {
+  
+  ## Specify best set of predictors found after model selction phase (params3$best.predictor.group): allow selection only among plausible models (e.g. Rthresh_0p8 discards Latitude)
+  if (params3$best.predictor.group == "all") {
+    predictors <- unlist(params2$pred.names.sh)[!unlist(params2$pred.names.sh) %in% params3$predictors.to.rem.prior.know]
+  } else if (params3$best.predictor.group == "Rthresh_0p9") {
+    predictors <- unlist(params2$pred.names.sh)[!unlist(params2$pred.names.sh) %in% c(params3$predictors.to.rem.prior.know, stats3$redund.pred.names.p90)]
+  } else if (params3$best.predictor.group == "Rthresh_0p95") {
+    predictors <- unlist(params2$pred.names.sh)[!unlist(params2$pred.names.sh) %in% c(params3$predictors.to.rem.prior.know, stats3$redund.pred.names.p95)]
+  }
+  
+} else {     ## ...otherwise, if using fitted data, the set of predictors has to be the same as for raw data, so just load it from corresponding directory
+  
+  stats3.temp <- stats3  ## to temporarily save current stats3 object before loading the one of the raw data
+  load(file.path(base_results_dir, "stats3.Rdata"))
+  predictors <- stats3$final.predictors  ## set the current predictors as being the same ones as for the raw data
+  stats3 <- stats3.temp   ## reassign current stats3 object to be used later
+  
+}
+
+## Remove temporal predictors
+if (params3$no.temporal.predictors) {
+  predictors <- predictors[!predictors %in% params3$temporal.predictors.to.remove]
 }
 
 nr.vars <- length(predictors)
@@ -923,25 +962,6 @@ if (params3$run.MA) {  ## run this block only if you want to (re)run the actual 
 
       ## impute IDs (same as for model selection phase)
       newtargets.output <- newtargets(yai.rf, X.val[,predictors], k=1)
-      
-      # ## ------- TODEL ---
-      # ## TEST IF ANN PARAMETER HAS IMPACT
-      # temp.toc <- proc.time()-temp.tic[3]
-      # print(paste("usual elapsed time:", seconds_to_period(temp.toc[3])))
-      # print(paste("usual Yai obj size:", object.size(yai.rf)))
-      # print(paste("usual newtargets.output obj size:", object.size(newtargets.output)))
-      # 
-      # temp.tic <- proc.time()
-      # set.seed(paramsGL$global.seed)
-      # yai.rf.ANN <- yai( x=X.trn[,predictors], y=Y.trn[,unlist(params3$targ.yaImp.names.lg)], bootstrap=F, method="randomForest", rfMode="regression", k=1, ntree=params3$ntree.MA*length(params3$targ.yaImp.names.lg), mtry=mtries, ann=T)
-      # newtargets.output.ANN <- newtargets(yai.rf.ANN, X.val[,predictors], k=1, ann=T)
-      # ids.val.predicted.ANN <- newtargets.output.ANN$neiIdsTrgs
-      # 
-      # temp.toc <- proc.time()-temp.tic[3]
-      # print(paste("with ANN elapsed time:", seconds_to_period(temp.toc[3])))
-      # print(paste("with ANN Yai obj size:", object.size(yai.rf.ANN)))
-      # print(paste("with ANN newtargets.output obj size:", object.size(newtargets.output.ANN)))
-      # ## ------- TODEL ---
       
       ids.val.predicted <- newtargets.output$neiIdsTrgs
       ids.val.predicted <- rownames_2_FCID(ids.val.predicted)
@@ -1100,7 +1120,8 @@ if (params3$run.SG) {  ## only run this block if we want to run this STATS AND G
       scatt.range <- c(min(temp.df$observed, temp.df$predicted), quantile(c(temp.df$observed, temp.df$predicted), 0.9999, names=F))
       GMFR.slope <- CAN.stats.compl["b_yvsx"]
       GMFR.interc <- CAN.stats.compl["a_yvsx"]
-      ## uncomment to check if corr. coeff. R is equal to the slope of the regression based on standardized predicted and observed values: pred = a + b obs
+      
+      ## Uncomment to check if corr. coeff. R is equal to the slope of the regression based on standardized predicted and observed values: pred = a + b obs
       # lm.mod <- lm(predicted~observed, data=temp.df)
       # lm.slope <- lm.mod$coefficients[2]
       # lm.interc <- lm.mod$coefficients[1]
@@ -1109,6 +1130,7 @@ if (params3$run.SG) {  ## only run this block if we want to run this STATS AND G
       # if ( as.vector(lm.mod.stand$coefficients[2]) - as.vector(sqrt(CAN.stats.df[idx.targ, "rsq"])) > 1e-10 ) {
       #   warning(sprintf("Predicted VS observed R and standardized regression slope do not match for %s on %s", method, targ))
       # }
+      
       pdf(fig.name.str)
         theme_set(theme_gray(base_size = 18))
         scatt.plot <- plot_colorByDensity(temp.df$observed, temp.df$predicted, xlim=scatt.range, ylim=scatt.range, xlab=plot.xlabel, ylab=plot.ylabel, main=paste(title.str, '\n', box.str)) +

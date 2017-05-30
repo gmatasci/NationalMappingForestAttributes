@@ -13,8 +13,11 @@ def raster_2_array(raster_obj):
     sr = dsc.SpatialReference
     ll = arcpy.Point(dsc.Extent.XMin, dsc.Extent.YMin) # store lower left corner to ensure the saved raster is put the right place
     raster_arr = arcpy.RasterToNumPyArray(raster_obj)
-    spatial_info = {'lower_left': ll, 'spatial_reference': sr,
+    try:
+        spatial_info = {'lower_left': ll, 'spatial_reference': sr,
                  'cell_width': dsc.meanCellWidth, 'cell_height': dsc.meanCellHeight}
+    except:
+        spatial_info = {'lower_left': ll, 'spatial_reference': sr}
     return raster_arr, spatial_info
 
 def array_2_raster(raster_arr, spatial_info):
@@ -45,3 +48,4 @@ def group_arcmap_layers(mxd_in, df_in, empty_gr_lyr_path, grouping_dict):
                 arcpy.mapping.RemoveLayer(df_in, layer)  ## remove layer to avoid duplicates
         i += 1
     return 'Layers grouped!'
+
