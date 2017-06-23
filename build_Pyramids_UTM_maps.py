@@ -1,6 +1,6 @@
 """
 Project Name: NationalMappingForestAttributes
-Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hoabart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
+Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hobart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
 File Name: build_Pyramids_UTM_maps.py                            
 Objective: Build pyramids for all forest attributes maps in each UTM zone saved in 'E:\NTEMS\UTM_results'
 """

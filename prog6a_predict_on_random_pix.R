@@ -27,7 +27,7 @@
 
 #### INIT --------------------------------------------------------------------
 
-print('Prog6a: temporal predictions on random set of pixels') 
+print('Prog6a: temporal predictions on random set of pixels')
 
 rm(list=ls())
 
@@ -40,17 +40,16 @@ load(param_file_prog2)
 param_file_prog3 = file.path(base_wkg_dir, 'AllUTMzones_params3.Rdata', fsep = .Platform$file.sep) 
 load(param_file_prog3)
 
-stats_file_prog3 = "D:/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR_NationalMappingForestAttributes/FINAL_RUN/results/stats3.Rdata"
-load(stats_file_prog3)
-
 source("D:/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR_NationalMappingForestAttributes/code/Functions_NatMapping_R.R")
 
 #### SCRIPT SPECIFIC PARAMETERS ---------------------------------------------
 
 params6a <- list()
 
+params6a$experiment.name <- "NO_CHATTR_LAT_LONG"
+
 params6a$subsetting <- T  ## to subset the dataset by a factor = params6a$data.subs.factor (for debugging in development phase or to work with smaller datasets)
-params6a$data.subs.factor <- 2
+params6a$data.subs.factor <- 1
 params6a$nr.clusters <- 1   ## only works with 1 cluster and %do% in foreach()
 
 params6a$temporal.base.dir <- "E:/NTEMS/UTM_results/2017_02_27_SAMPLES_treed_changes_plots"  ## subdirectory to save files with predicted values
@@ -60,7 +59,8 @@ params6a$temporal.data.types <- c("fitted")
 
 # params6a$change.types <-  c("always_treed", "fire", "harvesting")
 params6a$change.types <-  c("fire", "harvesting")
-
+# params6a$change.types <-  c("always_treed")
+                            
 params6a$models.subdir <- "D:/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR_NationalMappingForestAttributes/FINAL_RUN/Models"  ## model subdirectory to load models from
 
 params6a$mapped.years <- seq(from=1984, to=2012)
@@ -69,16 +69,16 @@ params6a$mapped.years <- seq(from=1984, to=2012)
 params6a$methods <- list("YAI")
 # params6a$methods <- list("RF", "YAI")   ## has to be set as list("RF", "YAI"), that is both methods have to be run
 
-# params6a$mapped.ecozones <- list("Atlantic Maritime", "Boreal Cordillera", "Boreal Plains", "Boreal Shield East", "Boreal Shield West",
-#                                  "Hudson Plains", "Montane Cordillera", "Pacific Maritime", "Taiga Cordillera",
-#                                  "Taiga Plains", "Taiga Shield East", "Taiga Shield West")
-# params6a$ecozone.codes <- c(2, 3, 4, 5, 6, 7, 9, 11, 15, 16, 17, 18)
-# params6a$mapped.ecozones <- list("Atlantic Maritime", "Boreal Cordillera", "Boreal Plains", "Boreal Shield East", "Boreal Shield West", "Montane Cordillera", "Pacific Maritime")
-# params6a$ecozone.codes <- c(2, 3, 4, 5, 6, 9, 11)
-params6a$mapped.ecozones <- list("Boreal Plains", "Boreal Shield East", "Pacific Maritime")
-params6a$ecozone.codes <- c(4, 5, 11)
-# params6a$mapped.ecozones <- list("Boreal Shield East", "Boreal Shield West")
-# params6a$ecozone.codes <- c(5, 6)
+params6a$mapped.ecozones <- list("Atlantic Maritime"=2, "Boreal Cordillera"=3, "Boreal Plains"=4, "Boreal Shield East"=5, "Boreal Shield West"=6,
+                                 "Hudson Plains"=7, "Montane Cordillera"=9, "Pacific Maritime"=11, "Taiga Cordillera"=15,
+                                 "Taiga Plains"=16, "Taiga Shield East"=17, "Taiga Shield West"=18)
+
+params6a$harvest.ecozones <- list("Atlantic Maritime"=2, "Boreal Plains"=4, "Boreal Shield East"=5, "Boreal Shield West"=6,
+                                 "Montane Cordillera"=9, "Pacific Maritime"=11, "Taiga Plains"=16)
+
+params6a$fire.ecozones <- list("Boreal Cordillera"=3, "Boreal Plains"=4, "Boreal Shield East"=5, "Boreal Shield West"=6,
+                                 "Hudson Plains"=7, "Montane Cordillera"=9, "Taiga Cordillera"=15,
+                                 "Taiga Plains"=16, "Taiga Shield East"=17, "Taiga Shield West"=18)
 
 params6a$targ.names.temporal.lg <- c("elev_p95", "percentage_first_returns_above_2m")
 
@@ -131,8 +131,12 @@ pix.idx.list <- list()  ## initialize list containing subsampling indices (varyi
 for (temporal.data.type in params6a$temporal.data.types) {
   
   ## Load model files either in the "raw" or "fitted" folder
-  load(file.path(params6a$models.subdir, temporal.data.type, "YAI.Rdata", fsep=.Platform$file.sep))
-  load(file.path(params6a$models.subdir, temporal.data.type, "Ytrn.Rdata", fsep=.Platform$file.sep))
+  load(file.path(params6a$models.subdir, sprintf('%s_%s', temporal.data.type, params6a$experiment.name), "YAI.Rdata", fsep=.Platform$file.sep))
+  load(file.path(params6a$models.subdir, sprintf('%s_%s', temporal.data.type, params6a$experiment.name), "Ytrn.Rdata", fsep=.Platform$file.sep))
+  
+  stats_file_prog3 <- sprintf("D:/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR_NationalMappingForestAttributes/FINAL_RUN/results_%s_%s/stats3.Rdata"
+                              , temporal.data.type, params6a$experiment.name)
+  load(stats_file_prog3)
   
   print(sprintf("Temporal data: %s", temporal.data.type))
 
@@ -144,22 +148,31 @@ for (temporal.data.type in params6a$temporal.data.types) {
     
     if (temporal.data.type == "fitted") {
       predictors.dir <- file.path(params6a$temporal.base.dir, change.type, 'metrics_fitted', fsep = .Platform$file.sep)
-      predicted.values.dir <- file.path(params6a$temporal.base.dir, change.type, 'predicted_values_fitted', fsep = .Platform$file.sep)
+      predicted.values.dir <- file.path(params6a$temporal.base.dir, change.type, sprintf('predicted_values_fitted_%s', params6a$experiment.name), fsep = .Platform$file.sep)
     } else if (temporal.data.type == "raw") {
       predictors.dir <- file.path(params6a$temporal.base.dir, change.type, 'metrics', fsep = .Platform$file.sep) 
-      predicted.values.dir <- file.path(params6a$temporal.base.dir, change.type, 'predicted_values', fsep = .Platform$file.sep) 
+      predicted.values.dir <- file.path(params6a$temporal.base.dir, change.type, sprintf('predicted_values_%s', params6a$experiment.name), fsep = .Platform$file.sep) 
     }
     
     if (! file.exists(predicted.values.dir)){dir.create(predicted.values.dir, showWarnings = F, recursive = T)}
     
-    nr.zero.samples.removed <- data.frame(matrix(nrow=length(params6a$mapped.ecozones), ncol=length(params6a$mapped.years)))
-    rownames(nr.zero.samples.removed) <- params6a$mapped.ecozones
+    ## Select the appropriate list of ecozones wrt ch_attr
+    if (change.type == "always_treed") {
+      ecozones <- params6a$mapped.ecozones
+    } else if (change.type == "fire") {
+      ecozones <- params6a$fire.ecozones
+    } else if (change.type == "harvesting") {
+      ecozones <- params6a$harvest.ecozones
+    }
+    
+    nr.zero.samples.removed <- data.frame(matrix(nrow=length(ecozones), ncol=length(params6a$mapped.years)))
+    rownames(nr.zero.samples.removed) <- names(ecozones)
     colnames(nr.zero.samples.removed) <- paste0('yr', params6a$mapped.years)
     pct.aberr.elev <- nr.zero.samples.removed
-    for (ez in 1:length(params6a$mapped.ecozones)) {
+    for (ez in 1:length(ecozones)) {
       
-      ecozone.name <- params6a$mapped.ecozones[ez]
-      ecozone.code <- params6a$ecozone.codes[ez]
+      ecozone.name <- names(ecozones[ez])
+      ecozone.code <- ecozones[[ez]]
       
       print(ecozone.name)
       
@@ -311,7 +324,7 @@ for (temporal.data.type in params6a$temporal.data.types) {
       ## Apply reshape_save() function on every column of melted.predictions to obtain a dt with pixels in rows and years in columns (each row is a pixel attribute time-series)
       lapply(seq_along(melted.predictions), function(idx) reshape_save(melted.predictions[[idx]], predicted.values.dir, change.type, names(melted.predictions)[idx], params6a$targ.names.temporal.lg, params6a$mapped.years, ecozone.code, ecozone.name))
       
-    }  ## end for on params6a$mapped.ecozones
+    }  ## end for on ecozones
     
     ## ---------- UNCOMMENT ------------
     zeroes.file <- file.path(params6a$temporal.base.dir, sprintf('ZeroSamplesRemovedByEcoByYear_%s.Rdata', temporal.data.type), fsep = .Platform$file.sep) 

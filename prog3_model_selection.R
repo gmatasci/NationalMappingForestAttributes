@@ -90,6 +90,9 @@ params3 <- list()
 
 ## Actual parameters to be used
 
+
+params3$experiment.name <- "NO_CHATTR_LAT_LONG"
+
 params3$subsetting <- F   ## to subset the dataset to a nr of samples = params3$nr.pts.plot (for debugging in development phase)
 
 params3$lidar.sources <- c("BOREAL", "NONBOREAL")
@@ -98,9 +101,9 @@ params3$lidar.sources <- c("BOREAL", "NONBOREAL")
 # params3$fitted.data <- F
 params3$fitted.data <- T
 
-params3$no.temporal.predictors <- T
-# params3$temporal.predictors.to.remove <- c("YrsSince_GrCh", "Ch_attr")   ## will be removed after having loaded the stats3 object with the list of final predictors from the raw data run
-params3$temporal.predictors.to.remove <- c("Ch_attr") 
+params3$no.artifact.predictors <- T
+# params3$artifact.predictors.to.remove <- c("YrsSince_GrCh", "Ch_attr")   ## will be removed after having loaded the stats3 object with the list of final predictors from the raw data run
+params3$artifact.predictors.to.remove <- c("Ch_attr", "Long", "Lat") 
 
 params3$filterCC <- F    ## whether to filter the datasets wrt canopy cover 
 params3$filterCC.thresh <- 10     ## thereshold on canopy cover pct to use
@@ -230,22 +233,20 @@ if (!params3$fitted.data) {
   results_dir <- base_results_dir
   models.subdir <- file.path(base_wkg_dir, "Models", fsep = .Platform$file.sep)
 } else {
-  figures_dir <- sprintf('%s_FITTED', base_figures_dir)
-  results_dir <- sprintf('%s_FITTED', base_results_dir)
-  models.subdir <- file.path(base_wkg_dir, "Models_FITTED", fsep = .Platform$file.sep)
+  figures_dir <- sprintf('%s_fitted', base_figures_dir)
+  results_dir <- sprintf('%s_fitted', base_results_dir)
+  models.subdir <- file.path(base_wkg_dir, "Models_fitted", fsep = .Platform$file.sep)
 }
 
-if (params3$no.temporal.predictors) {
-  figures_dir <- sprintf('%s_NOTEMPORAL', figures_dir)
-  results_dir <- sprintf('%s_NOTEMPORAL', results_dir)
-  models.subdir <- sprintf('%s_NOTEMPORAL', models.subdir)
-}
+figures_dir <- sprintf('%s_%s', figures_dir, params3$experiment.name)
+results_dir <- sprintf('%s_%s', results_dir, params3$experiment.name)
+models.subdir <- sprintf('%s_%s', models.subdir, params3$experiment.name)
 
 ## subdirectory to save model assessment plots
 Assess.CAN.subdir <- file.path(figures_dir, "Assessment_CAN_level", fsep = .Platform$file.sep)
 if (! file.exists(Assess.CAN.subdir)){dir.create(Assess.CAN.subdir, showWarnings = F, recursive = T)}
 
-## create results directory for FITTED data (not present before)
+## create results directory for fitted data (not present before)
 if (! file.exists(results_dir)){dir.create(results_dir, showWarnings = F, recursive = T)}
 
 ## create model subdirectories to save models for later use (in mapping phase)
@@ -631,6 +632,7 @@ if (params3$run.MS) {  ## run model selection phase only if we want to select be
   for (predictor.gr in params3$predictor.groups) {
   
     print(sprintf('Predictors group: %s', predictor.gr))
+    
     temp.tic <- proc.time() # start clocking time for each subset
 
     ## switch-case specifying different predictor combinations
@@ -857,9 +859,9 @@ if (!params3$fitted.data) {
   
 }
 
-## Remove temporal predictors
-if (params3$no.temporal.predictors) {
-  predictors <- predictors[!predictors %in% params3$temporal.predictors.to.remove]
+## Remove predictors causing artifacts (Ch_attr, Lat/Long)
+if (params3$no.artifact.predictors) {
+  predictors <- predictors[!predictors %in% params3$artifact.predictors.to.remove]
 }
 
 nr.vars <- length(predictors)

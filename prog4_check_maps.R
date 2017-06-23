@@ -75,7 +75,7 @@ params4$ecozone.names <- c("Boreal Plains", "Boreal Shield West", "Taiga Shield 
 
 params4$multipl <- list(elev_mean=1000, elev_stddev=1000, elev_cv=1000, elev_p95=1000, 
                         percentage_first_returns_above_2m=100, percentage_first_returns_above_mean=100,
-                        loreys_height=1000, basal_area=100, gross_stem_volume=100, total_biomass=10)
+                        loreys_height=1000, basal_area=100, gross_stem_volume=10, total_biomass=100)    ## old factors before volume and biomass correction: gross_stem_volume=100, total_biomass=10
 
 param_file_prog4 = file.path(base_wkg_dir, 'AllUTMzones_params4.Rdata', fsep = .Platform$file.sep) 
 save(params4, file = param_file_prog4)

@@ -1,6 +1,6 @@
 """
 Project Name: NationalMappingForestAttributes
-Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hoabart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
+Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hobart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
 File Name: build_BorealMaps_YAI_2010.py                            
 Objective: Build MXD with the 10 forest attributes maps for 2010 masked on the boreal
 """
