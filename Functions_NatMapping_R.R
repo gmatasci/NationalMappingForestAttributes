@@ -431,3 +431,55 @@ maj_vote_non_zero <- function(x) {
   )
   return(mv)
 }
+
+#### determine_trend_types ----------------------------------------------------------------
+## determine the type of trend (always treed, residual, regrowth) for a landcover time-series
+determine_trend_types <- function(x, treed.classes, no.tree.lag, residual.lag) {
+  
+  yr.of.change <- x[length(x)]   ## stored as last column of dt
+  ts.raw <- x[1:length(x)-1]
+  ts <- ts.raw 
+  ts[ts.raw %in% treed.classes] <- 1    ## recode to have 1s for treed classes and 0s for non-treed classes
+  ts[!ts.raw %in% treed.classes] <- 0
+  
+  ## Loop to compute treed class frequency in different temporal segments of the time-series
+  segments <- c("prechange", "notreelag", "residuallag", "postlag")  
+  treed.freqs <- list()
+  for (seg in segments) {
+    
+    ## Isolate different segments of the class labels time-series
+    if (seg == "prechange") {
+      ts.seg <- ts[names(ts) %in% 1984:(yr.of.change-1)]    ## the names of the time-series ts are the years
+    } else if (seg == "notreelag") {  
+      ts.seg <- ts[names(ts) %in% yr.of.change:(yr.of.change+no.tree.lag-1)] 
+    } else if (seg == "residuallag") {   
+      ts.seg <- ts[names(ts) %in% yr.of.change:(yr.of.change+residual.lag-1)] 
+    } else if (seg == "postlag") {   
+      ts.seg <- ts[names(ts) %in% (yr.of.change+no.tree.lag):2016]
+    }
+    
+    ## Compute frequencies of the labels "1"
+    freqs <- table(ts.seg)/length(ts.seg)
+    if (1 %in% names(freqs)) {
+      treed.freqs[seg] <- freqs[names(freqs)=='1']   ## fill dynamic list with frequency value [0, 1]
+    } else {
+      treed.freqs[seg] <- 0
+    }
+  
+  }
+  
+  ## Rules to classify each pixel into types of trends 
+  if (treed.freqs$prechange >= 0.9 & treed.freqs$notreelag >= 0.9 & treed.freqs$postlag >= 0.9) {
+    type <- "alwTree"
+  } else if (treed.freqs$prechange >= 0.9 & treed.freqs$residuallag == 1) {   ## (treed.freqs$residuallag == 1 | treed.freqs$notreelag >= 0.7)
+    type <- "residual"
+  } else if (treed.freqs$prechange >= 0.9 & treed.freqs$residuallag == 0) {   ## treed.freqs$notreelag == 0 & treed.freqs$postlag >= 0.3
+    type <- "regrow"
+  } else {
+    type <- "other"
+  }
+  
+  return(type)
+  
+}
+

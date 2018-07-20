@@ -1,5 +1,5 @@
 ## Project Name: NationalMappingForestAttributes
-## Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hobart (ghobart@nrcan.gc.ca), Harold Zald (hsz16@humboldt.edu)       
+## Authors: Giona Matasci (giona.matasci@gmail.com), Geordie Hobart (ghobart@nrcan.gc.ca)
 ## File Name: prog6a_predict_on_random_pix.R                           
 ## Objective: Predict forest attributes through time for randomly sampled pixels whose predictors are provided in a CSV file.
 
@@ -31,8 +31,10 @@ print('Prog6a: temporal predictions on random set of pixels')
 
 rm(list=ls())
 
-param_file <- "D:/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR_NationalMappingForestAttributes/wkg/AllUTMzones_paramsGL.Rdata"
+param_file <- "D:/Postdoc_Giona_2016-2017/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR/wkg/AllUTMzones_paramsGL.Rdata"
 load(param_file)
+
+base_wkg_dir <- "D:/Postdoc_Giona_2016-2017/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR/wkg"
 
 param_file_prog2 = file.path(base_wkg_dir, 'AllUTMzones_params2.Rdata', fsep = .Platform$file.sep) 
 load(param_file_prog2)
@@ -40,30 +42,34 @@ load(param_file_prog2)
 param_file_prog3 = file.path(base_wkg_dir, 'AllUTMzones_params3.Rdata', fsep = .Platform$file.sep) 
 load(param_file_prog3)
 
-source("D:/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR_NationalMappingForestAttributes/code/Functions_NatMapping_R.R")
+source("D:/Postdoc_Giona_2016-2017/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR/code/Functions_NatMapping_R.R")
 
 #### SCRIPT SPECIFIC PARAMETERS ---------------------------------------------
 
 params6a <- list()
 
-params6a$experiment.name <- "NO_CHATTR_LAT_LONG"
+params6a$experiment.name <- "NO_CHATTR"
 
 params6a$subsetting <- T  ## to subset the dataset by a factor = params6a$data.subs.factor (for debugging in development phase or to work with smaller datasets)
-params6a$data.subs.factor <- 1
+# params6a$data.subs.factor <- 3
+# params6a$data.subs.factor <- 1.5
+params6a$data.subs.factor <- 300
 params6a$nr.clusters <- 1   ## only works with 1 cluster and %do% in foreach()
 
-params6a$temporal.base.dir <- "E:/NTEMS/UTM_results/2017_02_27_SAMPLES_treed_changes_plots"  ## subdirectory to save files with predicted values
+# params6a$temporal.base.dir <- "E:/NTEMS/UTM_results/2017_02_27_SAMPLES_treed_changes_plots"  ## subdirectory to save files with predicted values
+params6a$temporal.base.dir <- "D:/Postdoc_Giona_2016-2017/DATA_E/NTEMS/UTM_results/samples_1984_2016"
 
 # params6a$temporal.data.types <- c("raw", "fitted")   ## type of temporal data to be analyzed: "raw" is the dataset with raw BAP proxy values, "fitted" is the dataset with fitted spectral trends
 params6a$temporal.data.types <- c("fitted")
 
-# params6a$change.types <-  c("always_treed", "fire", "harvesting")
-params6a$change.types <-  c("fire", "harvesting")
-# params6a$change.types <-  c("always_treed")
-                            
-params6a$models.subdir <- "D:/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR_NationalMappingForestAttributes/FINAL_RUN/Models"  ## model subdirectory to load models from
+# params6a$change.types <-  c("fire", "harvesting", "always_treed")
+# params6a$change.types <-  c("fire", "harvesting")
+params6a$change.types <-  c("always_treed")
+# params6a$change.types <-  c("harvesting")
 
-params6a$mapped.years <- seq(from=1984, to=2012)
+params6a$models.subdir <- "D:/Postdoc_Giona_2016-2017/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR/FINAL_RUN_fitted_NO_CHATTR/Models"  ## model subdirectory to load models from
+
+params6a$mapped.years <- seq(from=1984, to=2016)
 # params6a$mapped.years <- seq(from=1984, to=1986)
 
 params6a$methods <- list("YAI")
@@ -73,33 +79,36 @@ params6a$mapped.ecozones <- list("Atlantic Maritime"=2, "Boreal Cordillera"=3, "
                                  "Hudson Plains"=7, "Montane Cordillera"=9, "Pacific Maritime"=11, "Taiga Cordillera"=15,
                                  "Taiga Plains"=16, "Taiga Shield East"=17, "Taiga Shield West"=18)
 
-params6a$harvest.ecozones <- list("Atlantic Maritime"=2, "Boreal Plains"=4, "Boreal Shield East"=5, "Boreal Shield West"=6,
-                                 "Montane Cordillera"=9, "Pacific Maritime"=11, "Taiga Plains"=16)
+# params6a$harvest.ecozones <- list("Atlantic Maritime"=2, "Boreal Plains"=4, "Boreal Shield East"=5, "Boreal Shield West"=6,
+#                                  "Montane Cordillera"=9, "Pacific Maritime"=11, "Taiga Plains"=16)
+
+params6a$harvest.ecozones <- list("Boreal Shield East"=5, "Boreal Shield West"=6,
+                                  "Montane Cordillera"=9, "Pacific Maritime"=11, "Taiga Plains"=16)
+
 
 params6a$fire.ecozones <- list("Boreal Cordillera"=3, "Boreal Plains"=4, "Boreal Shield East"=5, "Boreal Shield West"=6,
                                  "Hudson Plains"=7, "Montane Cordillera"=9, "Taiga Cordillera"=15,
                                  "Taiga Plains"=16, "Taiga Shield East"=17, "Taiga Shield West"=18)
 
-params6a$targ.names.temporal.lg <- c("elev_p95", "percentage_first_returns_above_2m")
+# params6a$harvest.ecozones <- list("Montane Cordillera"=9)
+# 
+# params6a$fire.ecozones <- list("Montane Cordillera"=9)
+
+params6a$targ.names.temporal.lg <- c("elev_p95", "percentage_first_returns_above_2m", "gross_stem_volume", "total_biomass", "loreys_height", "basal_area")
 
 param_file_prog6a = file.path(base_wkg_dir, 'AllUTMzones_params6a.Rdata', fsep = .Platform$file.sep)
 save(params6a, file = param_file_prog6a)
 
 #### LOAD PACKAGES ----------------------------------------------------------
 
-list.of.packages <- c("latex2exp",    ## to have latex symbols in plots (not used in the end)
-                      "xtable",   ## to print Latex tables
-                      "rgeos",    ## spatial data handling...
-                      "rgdal",
+list.of.packages <- c("xtable",   ## to print Latex tables
                       "sp",
                       "spdep",
-                      "spatstat",
                       "ggplot2",
                       "gridExtra",
-                      "GGally",
                       "psych",
                       "plyr",
-                      "dplyr",   ## to be loaded before foreach to avoid "assertion failed" errors
+                      # "dplyr",   ## to be loaded before foreach to avoid "assertion failed" errors
                       "randomForest",
                       "rgl",
                       "yaImpute",
@@ -114,7 +123,9 @@ list.of.packages <- c("latex2exp",    ## to have latex symbols in plots (not use
                       "gplots"
 )
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]   ## named vector members whose name is "Package"
-if(length(new.packages)) install.packages(new.packages)
+if(length(new.packages)){ 
+   install.packages(new.packages)
+}
 for (pack in list.of.packages){
   library(pack, character.only=TRUE)
 }
@@ -132,10 +143,9 @@ for (temporal.data.type in params6a$temporal.data.types) {
   
   ## Load model files either in the "raw" or "fitted" folder
   load(file.path(params6a$models.subdir, sprintf('%s_%s', temporal.data.type, params6a$experiment.name), "YAI.Rdata", fsep=.Platform$file.sep))
-  load(file.path(params6a$models.subdir, sprintf('%s_%s', temporal.data.type, params6a$experiment.name), "Ytrn.Rdata", fsep=.Platform$file.sep))
+  load(file.path(params6a$models.subdir, sprintf('%s_%s', temporal.data.type, params6a$experiment.name), "Ytrn_longID.Rdata", fsep=.Platform$file.sep))
   
-  stats_file_prog3 <- sprintf("D:/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR_NationalMappingForestAttributes/FINAL_RUN/results_%s_%s/stats3.Rdata"
-                              , temporal.data.type, params6a$experiment.name)
+  stats_file_prog3 <- sprintf("D:/Postdoc_Giona_2016-2017/Research/ANALYSES/NationalMappingForestAttributes/WKG_DIR/FINAL_RUN_fitted_NO_CHATTR/results_%s_%s/stats3.Rdata", temporal.data.type, params6a$experiment.name)
   load(stats_file_prog3)
   
   print(sprintf("Temporal data: %s", temporal.data.type))
@@ -316,6 +326,9 @@ for (temporal.data.type in params6a$temporal.data.types) {
       #### TO USE WITH FOR ON params6a$mapped.years ------------
       ## Stitch together the list elements by column of lists
       melted.predictions <- lapply(predictions.list, function(x) rbindlist(x))
+      
+      rm(predictions.list)
+      gc()
 
       ## Add pixel ID replicated by year to later reshape the data with one row per pixel
       melted.predictions <- lapply(melted.predictions, cbind, pixID=rep(yearly.predictors[,pixID], length(params6a$mapped.years)))
@@ -323,6 +336,9 @@ for (temporal.data.type in params6a$temporal.data.types) {
       
       ## Apply reshape_save() function on every column of melted.predictions to obtain a dt with pixels in rows and years in columns (each row is a pixel attribute time-series)
       lapply(seq_along(melted.predictions), function(idx) reshape_save(melted.predictions[[idx]], predicted.values.dir, change.type, names(melted.predictions)[idx], params6a$targ.names.temporal.lg, params6a$mapped.years, ecozone.code, ecozone.name))
+      
+      rm(melted.predictions)
+      gc()
       
     }  ## end for on ecozones
     

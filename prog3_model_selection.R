@@ -67,7 +67,7 @@
 
 ## WRITES:
 # - "RF_<target>.Rdata": R data file with RF models for each response variable to use later for mapping (prediction) on the grid
-# - "YAI.Rdata", "Ytrn.Rdata": R data file with YaImpute models and training set to use later for mapping (imputation) on the grid
+# - "YAI.Rdata", "Ytrn_longID.Rdata": R data file with YaImpute models and training set to use later for mapping (imputation) on the grid
 
 #### INIT --------------------------------------------------------------------
 
@@ -978,7 +978,7 @@ if (params3$run.MA) {  ## run this block only if you want to (re)run the actual 
       ## save model (how to assign IDs) and Ytrn (from where to copy the values to paste) to impute values when mapping in IDL
       Yai.model.path <- file.path(models.subdir, "YAI.Rdata", fsep=.Platform$file.sep)   
       save(yai.rf, file=Yai.model.path)
-      Y.trn.path <- file.path(models.subdir, "Ytrn.Rdata", fsep=.Platform$file.sep)
+      Y.trn.path <- file.path(models.subdir, "Ytrn_longID.Rdata", fsep=.Platform$file.sep)
       save(Y.trn.to.assign, file=Y.trn.path)
       rm(Y.trn.to.assign)
       

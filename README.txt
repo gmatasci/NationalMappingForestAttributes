@@ -6,6 +6,8 @@
 
 - exportMaps_YAI_2010.py: Export to PNG the 2010 maps of some specified attributes of interest zoomed to a given bookmark 
 
+- exportTimeSeries_CAN_YAI_1984_2012.py: Export to PNG the time-series of specified attributes of interest zoomed on bookmarks across Canada (maps of 2nd paper)
+
 - exportTimeSeries_elevp95_RF_1984_2012_YAI_2010.py: Export to PNG the time-series of some specified attributes of interest zoomed to a given bookmark 
 
 - Functions_NatMapping_Python.py: Define Python functions to make available to all py scripts
@@ -28,14 +30,18 @@
 
 - prog3_model_selection.R: Descriptive statistics and plots, variable selection and Random Forest prediction/imputation
 
+- prog4a_map_donor_plot_distance.py: Computes the distance from each pixel to its donor plot (in Lat/Long degree units) and also saves Lat and Long of donor plot
+
 - prog4_check_maps.R: Check that predicted values on maps match those predicted on plots
+
+- prog5a_rename_maps.py: renames maps after correction of biomass and volume values
 
 - prog5_ecozone_stats.py: Compute descriptive stats by ecozone over the entire boreal for all the mapped attributes
 
 - prog5_ecozone_stats_plots.R: Produce boxplots based on the descriptive stats extracted with 'prog5_ecozone_stats.py'
 
-- prog6_temporal_analysis.R: Plot time-series of mapped attributes with boxplots of an ensemble of pixels sampled over large areas or with lines for individual pixel
-
 - prog6a_predict_on_random_pix.R: Predict forest attributes through time for randomly sampled pixels whose predictors are provided in a CSV file.
 
 - prog6b_predict_on_val_pix.R: Predict forest attributes through time for validation pixels whose predictors are provided in a CSV file.
+
+- prog6_temporal_analysis.R: Plot time-series of mapped attributes with boxplots of an ensemble of pixels sampled over large areas or with lines for individual pixel
