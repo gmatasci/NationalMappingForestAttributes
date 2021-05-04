@@ -1,3 +1,14 @@
+# NationalMappingForestAttributes
+R and Python scripts for the Postdoc project (collaboration between UBC's Integrated Remote Sensing Studio and the Canadian Forest Service).
+
+## Goal
+Develop machine learning models (Random Forests, imputation methods) to relate time-series of Landsat images and LiDAR data to ultimately map forest attributes across Canada over a period of 30+ years, improving forest monitoring and management practices.
+
+## Approach and main results
+
+
+## Script description
+
 - build_BorealMaps_YAI_2010.py: Build MXD with the 10 forest attributes maps for 2010 masked on the boreal
 
 - build_Pyramids_UTM_maps.py: Build pyramids for all forest attributes maps in each UTM zone saved in 'E:\NTEMS\UTM_results'
@@ -26,7 +37,9 @@
 
 - prog1a_volume_biomass_check_recompute.R: check the issue with incoherence of Vol and Biomass values between Boreal/Non-boreal ecozones. Wrong equations have been used and this script recomputes the correct values on the transect for these 2 attributes.
 
+
 - prog2_lidar_plots_footprint_extract_exvars.R: Extract values for all explanatory rasters spatially coincident with sampled lidar plot polygons for both training and validation plots
+
 
 - prog3_model_selection.R: Descriptive statistics and plots, variable selection and Random Forest prediction/imputation
 
