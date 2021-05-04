@@ -5,10 +5,17 @@ R and Python scripts for the Postdoc project (collaboration between UBC's Integr
 Develop machine learning models (Random Forests, imputation methods) to relate time-series of Landsat images and LiDAR data to ultimately map forest attributes across Canada over a period of 30+ years, improving forest monitoring and management practices.
 
 ## Approach and main results
+### Single year map
+<img src="https://github.com/gmatasci/NationalMappingForestAttributes/blob/master/Figures/NatMappingForeestAttr_Workflow_wLiDARtransectFieldPlots.png" width="800">
 
+<img src="https://github.com/gmatasci/NationalMappingForestAttributes/blob/master/Figures/BorealMaps.png" width="800">
+
+### Multitemporal extension
+<img src="https://github.com/gmatasci/NationalMappingForestAttributes/blob/master/Figures/TemporalMapping_allData_trendFitting.png" width="800">
+
+<img src="https://github.com/gmatasci/NationalMappingForestAttributes/blob/master/Figures/Fig7.png" width="800">
 
 ## Script description
-
 - build_BorealMaps_YAI_2010.py: Build MXD with the 10 forest attributes maps for 2010 masked on the boreal
 
 - build_Pyramids_UTM_maps.py: Build pyramids for all forest attributes maps in each UTM zone saved in 'E:\NTEMS\UTM_results'
